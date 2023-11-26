@@ -12,11 +12,13 @@ uniform SAMPLER_TYPE channel2;
 uniform SAMPLER_TYPE channel3;
 uniform SAMPLER_TYPE channel4;
 uniform SAMPLER_TYPE channel5;
+uniform SAMPLER_TYPE channel6;
+uniform SAMPLER_TYPE channel7;
 
 in vec2 vTexCoord;
 
 // range
-uniform vec2 contrastLimits[6];
+uniform vec2 contrastLimits[8];
 
 void main() {
 
@@ -33,7 +35,12 @@ void main() {
   float intensity5 = float(texture(channel5, vTexCoord).r);
   DECKGL_PROCESS_INTENSITY(intensity5, contrastLimits[5], 5);
 
-  DECKGL_MUTATE_COLOR(gl_FragColor, intensity0, intensity1, intensity2, intensity3, intensity4, intensity5, vTexCoord);
+  float intensity6 = float(texture(channel6, vTexCoord).r);
+  DECKGL_PROCESS_INTENSITY(intensity6, contrastLimits[6], 6);
+  float intensity7 = float(texture(channel7, vTexCoord).r);
+  DECKGL_PROCESS_INTENSITY(intensity7, contrastLimits[7], 7);
+
+  DECKGL_MUTATE_COLOR(gl_FragColor, intensity0, intensity1, intensity2, intensity3, intensity4, intensity5,intensity6, intensity7, vTexCoord);
 
 
   geometry.uv = vTexCoord;
