@@ -130,11 +130,11 @@ importers:
         specifier: ~8.8.27
         version: 8.8.27
       '@vivjs/constants':
-        specifier: workspace:*
+        specifier: 0.15.1
         version: link:../constants
     devDependencies:
       '@vivjs/types':
-        specifier: workspace:*
+        specifier: 0.15.1
         version: link:../types
       glsl-colormap:
         specifier: ^1.0.1
@@ -170,16 +170,16 @@ importers:
         specifier: ^3.5.7
         version: 3.6.3
       '@vivjs/constants':
-        specifier: workspace:*
+        specifier: 0.15.1
         version: link:../constants
       '@vivjs/extensions':
-        specifier: workspace:*
+        specifier: 0.15.1
         version: link:../extensions
       '@vivjs/loaders':
-        specifier: workspace:*
+        specifier: 0.15.1
         version: link:../loaders
       '@vivjs/types':
-        specifier: workspace:*
+        specifier: 0.15.1
         version: link:../types
 
   packages/loaders:
