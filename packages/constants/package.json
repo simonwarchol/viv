@@ -9,19 +9,14 @@
   "license": "MIT",
   "homepage": "https://github.com/hms-dbmi/viv#readme",
   "type": "module",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "publishConfig": {
-    "main": "dist/index.mjs",
-    "types": "dist/index.d.ts",
     "sideEffects": false
   },
   "files": [
     "dist"
   ],
-  "scripts": {
-    "build": "unbuild"
-  },
   "dependencies": {
     "@luma.gl/constants": "~8.5.21"
   },
@@ -30,5 +25,8 @@
       "src/index"
     ],
     "declaration": true
+  },
+  "scripts": {
+    "build": "unbuild"
   }
 }

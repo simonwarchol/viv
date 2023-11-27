@@ -9,19 +9,13 @@
   "license": "MIT",
   "homepage": "https://github.com/hms-dbmi/viv#readme",
   "type": "module",
-  "main": "src/index.js",
+  "main": "dist/index.mjs",
   "publishConfig": {
-    "main": "dist/index.mjs",
-    "types": "dist/index.d.ts",
     "sideEffects": false
   },
   "files": [
     "dist"
   ],
-  "scripts": {
-    "build": "unbuild",
-    "test": "node ../../scripts/bundle-test.mjs tests/index.spec.js | tape-run | tap-spec"
-  },
   "peerDependencies": {
     "@deck.gl/core": "~8.8.27",
     "@deck.gl/geo-layers": "~8.8.27",
@@ -34,15 +28,20 @@
   "dependencies": {
     "@math.gl/core": "^3.5.7",
     "@math.gl/culling": "^3.5.7",
-    "@vivjs/constants": "workspace:*",
-    "@vivjs/extensions": "workspace:*",
-    "@vivjs/loaders": "workspace:*",
-    "@vivjs/types": "workspace:*"
+    "@vivjs/constants": "0.15.1",
+    "@vivjs/extensions": "0.15.1",
+    "@vivjs/loaders": "0.15.1",
+    "@vivjs/types": "0.15.1"
   },
   "unbuild": {
     "entries": [
       "src/index"
     ],
     "declaration": true
-  }
+  },
+  "scripts": {
+    "build": "unbuild",
+    "test": "node ../../scripts/bundle-test.mjs tests/index.spec.js | tape-run | tap-spec"
+  },
+  "types": "dist/index.d.ts"
 }
