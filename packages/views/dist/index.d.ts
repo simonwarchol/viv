@@ -1,4 +1,4 @@
-import { OrbitView, OrthographicView } from '@deck.gl/core';
+import type { OrbitView, OrthographicView } from '@deck.gl/core';
 
 /**
  * This class generates a layer and a view for use in the VivViewer
@@ -11,49 +11,60 @@ import { OrbitView, OrthographicView } from '@deck.gl/core';
  * @param {number=} args.y Y (top-left) location on the screen for the current view
  */
 declare class VivView {
-    constructor({ id, x, y, height, width }: {
-        id: any;
-        x?: number | undefined;
-        y?: number | undefined;
-        height: any;
-        width: any;
-    });
-    width: any;
-    height: any;
+  constructor({
+    id,
+    x,
+    y,
+    height,
+    width
+  }: {
     id: any;
-    x: number;
-    y: number;
-    /**
-     * Create a DeckGL view based on this class.
-     * @returns {View} The DeckGL View for this class.
-     */
-    getDeckGlView(): View;
-    /**
-     * Create a viewState for this class, checking the id to make sure this class and veiwState match.
-     * @param {Object} args
-     * @param {object} [args.viewState] incoming ViewState object from deck.gl update.
-     * @param {object} [args.oldViewState] old ViewState object from deck.gl.
-     * @param {object} [args.currentViewState] current ViewState object in react state.
-     * @returns {?object} ViewState for this class (or null by default if the ids do not match).
-     */
-    filterViewState({ viewState }: {
-        viewState?: object | undefined;
-        oldViewState?: object | undefined;
-        currentViewState?: object | undefined;
-    }): object | null;
-    /**
-     * Create a layer for this instance.
-     * @param {Object} args
-     * @param {Object<string,Object>} args.viewStates ViewStates for all current views.
-     * @param {Object} args.props Props for this instance.
-     * @returns {Layer} Instance of a layer.
-     */
-    getLayers({ viewStates, props }: {
-        viewStates: {
-            [x: string]: Object;
-        };
-        props: Object;
-    }): Layer;
+    x?: number | undefined;
+    y?: number | undefined;
+    height: any;
+    width: any;
+  });
+  width: any;
+  height: any;
+  id: any;
+  x: number;
+  y: number;
+  /**
+   * Create a DeckGL view based on this class.
+   * @returns {View} The DeckGL View for this class.
+   */
+  getDeckGlView(): View;
+  /**
+   * Create a viewState for this class, checking the id to make sure this class and veiwState match.
+   * @param {Object} args
+   * @param {object} [args.viewState] incoming ViewState object from deck.gl update.
+   * @param {object} [args.oldViewState] old ViewState object from deck.gl.
+   * @param {object} [args.currentViewState] current ViewState object in react state.
+   * @returns {?object} ViewState for this class (or null by default if the ids do not match).
+   */
+  filterViewState({
+    viewState
+  }: {
+    viewState?: object | undefined;
+    oldViewState?: object | undefined;
+    currentViewState?: object | undefined;
+  }): object | null;
+  /**
+   * Create a layer for this instance.
+   * @param {Object} args
+   * @param {Object<string,Object>} args.viewStates ViewStates for all current views.
+   * @param {Object} args.props Props for this instance.
+   * @returns {Layer} Instance of a layer.
+   */
+  getLayers({
+    viewStates,
+    props
+  }: {
+    viewStates: {
+      [x: string]: Object;
+    };
+    props: Object;
+  }): Layer;
 }
 
 /**
@@ -73,38 +84,56 @@ declare class VivView {
  * @param {string} args.id id of the View
  * */
 declare class SideBySideView extends VivView {
-    constructor({ id, x, y, height, width, linkedIds, panLock, zoomLock, viewportOutlineColor, viewportOutlineWidth }: {
-        id: any;
-        x?: number | undefined;
-        y?: number | undefined;
-        height: any;
-        width: any;
-        linkedIds?: never[] | undefined;
-        panLock?: boolean | undefined;
-        zoomLock?: boolean | undefined;
-        viewportOutlineColor?: number[] | undefined;
-        viewportOutlineWidth?: number | undefined;
-    });
-    linkedIds: any[];
-    panLock: boolean;
-    zoomLock: boolean;
-    viewportOutlineColor: number[];
-    viewportOutlineWidth: number;
-    filterViewState({ viewState, oldViewState, currentViewState }: {
-        viewState: any;
-        oldViewState: any;
-        currentViewState: any;
-    }): {
-        id: any;
-        target: any;
-        zoom: any;
-        height: any;
-        width: any;
-    };
-    getLayers({ props, viewStates }: {
-        props: any;
-        viewStates: any;
-    }): any[][];
+  constructor({
+    id,
+    x,
+    y,
+    height,
+    width,
+    linkedIds,
+    panLock,
+    zoomLock,
+    viewportOutlineColor,
+    viewportOutlineWidth
+  }: {
+    id: any;
+    x?: number | undefined;
+    y?: number | undefined;
+    height: any;
+    width: any;
+    linkedIds?: never[] | undefined;
+    panLock?: boolean | undefined;
+    zoomLock?: boolean | undefined;
+    viewportOutlineColor?: number[] | undefined;
+    viewportOutlineWidth?: number | undefined;
+  });
+  linkedIds: any[];
+  panLock: boolean;
+  zoomLock: boolean;
+  viewportOutlineColor: number[];
+  viewportOutlineWidth: number;
+  filterViewState({
+    viewState,
+    oldViewState,
+    currentViewState
+  }: {
+    viewState: any;
+    oldViewState: any;
+    currentViewState: any;
+  }): {
+    id: any;
+    target: any;
+    zoom: any;
+    height: any;
+    width: any;
+  };
+  getLayers({
+    props,
+    viewStates
+  }: {
+    props: any;
+    viewStates: any;
+  }): any[][];
 }
 
 /**
@@ -114,23 +143,31 @@ declare class SideBySideView extends VivView {
  * @param {Boolean} args.useFixedAxis Whether or not to fix the axis of the camera.
  * */
 declare class VolumeView extends VivView {
-    constructor({ target, useFixedAxis, ...args }: {
-        [x: string]: any;
-        target: any;
-        useFixedAxis: any;
-    });
+  constructor({
+    target,
+    useFixedAxis,
+    ...args
+  }: {
+    [x: string]: any;
     target: any;
     useFixedAxis: any;
-    getDeckGlView(): OrbitView;
-    filterViewState({ viewState }: {
-        viewState: any;
-    }): any;
-    getLayers({ props }: {
-        props: any;
-    }): any[];
+  });
+  target: any;
+  useFixedAxis: any;
+  getDeckGlView(): OrbitView;
+  filterViewState({
+    viewState
+  }: {
+    viewState: any;
+  }): any;
+  getLayers({
+    props
+  }: {
+    props: any;
+  }): any[];
 }
 
-declare const DETAIL_VIEW_ID: "detail";
+declare const DETAIL_VIEW_ID: 'detail';
 /**
  * This class generates a MultiscaleImageLayer and a view for use in the VivViewer as a detailed view.
  * It takes the same arguments for its constructor as its base class VivView.
@@ -146,16 +183,21 @@ declare const DETAIL_VIEW_ID: "detail";
  * @param {string} args.id id of the View
  * */
 declare class DetailView extends VivView {
-    getLayers({ props }: {
-        props: any;
-    }): any[][];
-    filterViewState({ viewState, currentViewState }: {
-        viewState: any;
-        currentViewState: any;
-    }): any;
+  getLayers({
+    props
+  }: {
+    props: any;
+  }): any[][];
+  filterViewState({
+    viewState,
+    currentViewState
+  }: {
+    viewState: any;
+    currentViewState: any;
+  }): any;
 }
 
-declare const OVERVIEW_VIEW_ID: "overview";
+declare const OVERVIEW_VIEW_ID: 'overview';
 /**
  * This class generates a OverviewLayer and a view for use in the VivViewer as an overview to a Detailview (they must be used in conjection).
  * From the base class VivView, only the initialViewState argument is used.  This class uses private methods to position its x and y from the
@@ -175,56 +217,82 @@ declare const OVERVIEW_VIEW_ID: "overview";
  * @param {Boolean} [args.clickCenter] Click to center the default view. Default is true.
  * */
 declare class OverviewView extends VivView {
-    constructor({ id, loader, detailHeight, detailWidth, scale, margin, position, minimumWidth, maximumWidth, minimumHeight, maximumHeight, clickCenter }: {
-        id: any;
-        loader: any;
-        detailHeight: any;
-        detailWidth: any;
-        scale?: number | undefined;
-        margin?: number | undefined;
-        position?: string | undefined;
-        minimumWidth?: number | undefined;
-        maximumWidth?: number | undefined;
-        minimumHeight?: number | undefined;
-        maximumHeight?: number | undefined;
-        clickCenter?: boolean | undefined;
-    });
-    margin: number;
+  constructor({
+    id,
+    loader,
+    detailHeight,
+    detailWidth,
+    scale,
+    margin,
+    position,
+    minimumWidth,
+    maximumWidth,
+    minimumHeight,
+    maximumHeight,
+    clickCenter
+  }: {
+    id: any;
     loader: any;
-    position: string;
     detailHeight: any;
     detailWidth: any;
-    clickCenter: boolean;
-    /**
-     * Set the image-pixel scale and height and width based on detail view.
-     */
-    _setHeightWidthScale({ detailWidth, detailHeight, scale, minimumWidth, maximumWidth, minimumHeight, maximumHeight }: {
-        detailWidth: any;
-        detailHeight: any;
-        scale: any;
-        minimumWidth: any;
-        maximumWidth: any;
-        minimumHeight: any;
-        maximumHeight: any;
-    }): void;
-    _imageWidth: any;
-    _imageHeight: any;
-    scale: number | undefined;
-    /**
-     * Set the x and y (top left corner) of this overview relative to the detail.
-     */
-    _setXY(): void;
-    getDeckGlView(): OrthographicView;
-    filterViewState({ viewState }: {
-        viewState: any;
-    }): any;
-    getLayers({ viewStates, props }: {
-        viewStates: any;
-        props: any;
-    }): any[];
+    scale?: number | undefined;
+    margin?: number | undefined;
+    position?: string | undefined;
+    minimumWidth?: number | undefined;
+    maximumWidth?: number | undefined;
+    minimumHeight?: number | undefined;
+    maximumHeight?: number | undefined;
+    clickCenter?: boolean | undefined;
+  });
+  margin: number;
+  loader: any;
+  position: string;
+  detailHeight: any;
+  detailWidth: any;
+  clickCenter: boolean;
+  /**
+   * Set the image-pixel scale and height and width based on detail view.
+   */
+  _setHeightWidthScale({
+    detailWidth,
+    detailHeight,
+    scale,
+    minimumWidth,
+    maximumWidth,
+    minimumHeight,
+    maximumHeight
+  }: {
+    detailWidth: any;
+    detailHeight: any;
+    scale: any;
+    minimumWidth: any;
+    maximumWidth: any;
+    minimumHeight: any;
+    maximumHeight: any;
+  }): void;
+  _imageWidth: any;
+  _imageHeight: any;
+  scale: number | undefined;
+  /**
+   * Set the x and y (top left corner) of this overview relative to the detail.
+   */
+  _setXY(): void;
+  getDeckGlView(): OrthographicView;
+  filterViewState({
+    viewState
+  }: {
+    viewState: any;
+  }): any;
+  getLayers({
+    viewStates,
+    props
+  }: {
+    viewStates: any;
+    props: any;
+  }): any[];
 }
 
-declare const SCALEBAR_VIEW_ID: "scalebar";
+declare const SCALEBAR_VIEW_ID: 'scalebar';
 /**
  * This class generates a ScaleBar view that displays a scale bar in a specific screen position.
  * The scale bar is positioned via the view mechanism and maintains a consistent visual position on screen.
@@ -242,30 +310,45 @@ declare const SCALEBAR_VIEW_ID: "scalebar";
  * @param {string=} args.imageViewId The id of the image view to track zoom from. Used to calculate correct scale values.
  */
 declare class ScaleBarView extends VivView {
-    constructor({ id, width, height, loader, imageViewId, position, length, snap, x, y }: {
-        id: any;
-        width: any;
-        height: any;
-        loader: any;
-        imageViewId: any;
-        position?: string | undefined;
-        length?: number | undefined;
-        snap?: boolean | undefined;
-        x?: number | undefined;
-        y?: number | undefined;
-    });
+  constructor({
+    id,
+    width,
+    height,
+    loader,
+    imageViewId,
+    position,
+    length,
+    snap,
+    x,
+    y
+  }: {
+    id: any;
+    width: any;
+    height: any;
     loader: any;
-    position: string;
-    length: number;
-    snap: boolean;
     imageViewId: any;
-    getDeckGlView(): OrthographicView;
-    filterViewState({ viewState }: {
-        viewState: any;
-    }): any;
-    getLayers({ viewStates }: {
-        viewStates: any;
-    }): any[];
+    position?: string | undefined;
+    length?: number | undefined;
+    snap?: boolean | undefined;
+    x?: number | undefined;
+    y?: number | undefined;
+  });
+  loader: any;
+  position: string;
+  length: number;
+  snap: boolean;
+  imageViewId: any;
+  getDeckGlView(): OrthographicView;
+  filterViewState({
+    viewState
+  }: {
+    viewState: any;
+  }): any;
+  getLayers({
+    viewStates
+  }: {
+    viewStates: any;
+  }): any[];
 }
 
 declare function getVivId(id: any): string;
@@ -280,6 +363,24 @@ declare function getVivId(id: any): string;
  * @param {Boolean=} modelMatrix If using a transformation matrix, passing it in here will allow this function to properly center the volume.
  * @returns {Object} A default initial view state that centers the image within the view: { target: [x, y, 0], zoom: -zoom }.
  */
-declare function getDefaultInitialViewState(loader: Object, viewSize: Object, zoomBackOff?: Object | undefined, use3d?: boolean | undefined, modelMatrix?: boolean | undefined): Object;
+declare function getDefaultInitialViewState(
+  loader: Object,
+  viewSize: Object,
+  zoomBackOff?: Object | undefined,
+  use3d?: boolean | undefined,
+  modelMatrix?: boolean | undefined
+): Object;
 
-export { DETAIL_VIEW_ID, DetailView, OVERVIEW_VIEW_ID, OverviewView, SCALEBAR_VIEW_ID, ScaleBarView, SideBySideView, VivView, VolumeView, getDefaultInitialViewState, getVivId };
+export {
+  DETAIL_VIEW_ID,
+  DetailView,
+  OVERVIEW_VIEW_ID,
+  OverviewView,
+  SCALEBAR_VIEW_ID,
+  ScaleBarView,
+  SideBySideView,
+  VivView,
+  VolumeView,
+  getDefaultInitialViewState,
+  getVivId
+};

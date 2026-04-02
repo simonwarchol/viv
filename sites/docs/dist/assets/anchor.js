@@ -6,8 +6,7 @@
 /* eslint-env amd, node */
 
 // https://github.com/umdjs/umd/blob/master/templates/returnExports.js
-(function (root, factory) {
-  'use strict';
+((root, factory) => {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
     define([], factory);
@@ -21,8 +20,7 @@
     root.AnchorJS = factory();
     root.anchors = new root.AnchorJS();
   }
-})(this, function () {
-  'use strict';
+})(this, () => {
   function AnchorJS(options) {
     this.options = options || {};
     this.elements = [];
@@ -51,12 +49,11 @@
      * https://github.com/Modernizr/Modernizr/blob/da22eb27631fc4957f67607fe6042e85c0a84656/feature-detects/touchevents.js#L40
      * @returns {Boolean} - true if the current device supports touch.
      */
-    this.isTouchDevice = function () {
-      return !!(
+    this.isTouchDevice = () =>
+      !!(
         'ontouchstart' in window ||
         (window.DocumentTouch && document instanceof DocumentTouch)
       );
-    };
 
     /**
      * Add anchor links to page elements.
@@ -260,7 +257,7 @@
      * @param    {HTMLElemnt}  el - a DOM node
      * @returns   {Boolean}     true/false
      */
-    this.hasAnchorJSLink = function (el) {
+    this.hasAnchorJSLink = el => {
       var hasLeftAnchor =
           el.firstChild &&
           (' ' + el.firstChild.className + ' ').indexOf(' anchorjs-link ') > -1,

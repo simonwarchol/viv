@@ -88,7 +88,7 @@ const PhysicalUnitSchema = z.enum([
 
 /**
  * ROI Shape Types (OME-XML 2016-06 Schema Compliant)
- * 
+ *
  * All shapes inherit common attributes from the base Shape entity:
  * - ID: Unique identifier (required)
  * - Label: Optional label (OME-XML standard attribute)
@@ -98,7 +98,7 @@ const PhysicalUnitSchema = z.enum([
  * - Text, FontFamily, FontSize, FontStyle: Text attributes
  * - Locked, Visible: Interaction state
  * - Transform: Optional affine transformation matrix
- * 
+ *
  * Each shape type adds its own specific attributes:
  * - Rectangle: X, Y, Width, Height (top-left corner + dimensions)
  * - Ellipse: X, Y, RadiusX, RadiusY (center + radii)
@@ -107,7 +107,7 @@ const PhysicalUnitSchema = z.enum([
  * - Polyline: Points (space-separated coordinate pairs: "x1,y1 x2,y2 ...")
  * - Polygon: Points (space-separated coordinate pairs: "x1,y1 x2,y2 ...")
  * - Label: X, Y (label position)
- * 
+ *
  * @see https://www.openmicroscopy.org/Schemas/Documentation/Generated/OME-2016-06/ome.html
  */
 export type ShapeType = z.infer<typeof ShapeTypeSchema>;
@@ -146,8 +146,8 @@ function createShapeSchema(specificAttrs: z.ZodRawShape, shapeType: string) {
       attr: z.object({
         // Common Shape attributes (inherited by all shapes)
         ID: z.string(),
-        Label: z.string().optional(),      // OME-XML uses "Label" 
-        Name: z.string().optional(),       // Some implementations also use "Name"
+        Label: z.string().optional(), // OME-XML uses "Label"
+        Name: z.string().optional(), // Some implementations also use "Name"
 
         // Visual styling attributes
         FillColor: z.coerce.number().transform(intToRgba).optional(),
@@ -165,7 +165,9 @@ function createShapeSchema(specificAttrs: z.ZodRawShape, shapeType: string) {
         Text: z.string().optional(),
         FontFamily: z.string().optional(),
         FontSize: z.coerce.number().optional(),
-        FontStyle: z.enum(['Normal', 'Italic', 'Bold', 'BoldItalic']).optional(),
+        FontStyle: z
+          .enum(['Normal', 'Italic', 'Bold', 'BoldItalic'])
+          .optional(),
 
         // Interaction and state attributes
         Locked: z
@@ -185,54 +187,82 @@ function createShapeSchema(specificAttrs: z.ZodRawShape, shapeType: string) {
     .transform(data => ({ ...data, type: shapeType }));
 }
 
-const RectangleSchema = createShapeSchema({
-  X: z.coerce.number(),        // Top-left X coordinate
-  Y: z.coerce.number(),        // Top-left Y coordinate
-  Width: z.coerce.number(),    // Rectangle width
-  Height: z.coerce.number()    // Rectangle height
-}, 'rectangle');
+const RectangleSchema = createShapeSchema(
+  {
+    X: z.coerce.number(), // Top-left X coordinate
+    Y: z.coerce.number(), // Top-left Y coordinate
+    Width: z.coerce.number(), // Rectangle width
+    Height: z.coerce.number() // Rectangle height
+  },
+  'rectangle'
+);
 export type Rectangle = z.infer<typeof RectangleSchema>;
 
-const EllipseSchema = createShapeSchema({
-  X: z.coerce.number(),        // Center X coordinate
-  Y: z.coerce.number(),        // Center Y coordinate
-  RadiusX: z.coerce.number(),  // Horizontal radius
-  RadiusY: z.coerce.number()   // Vertical radius
-}, 'ellipse');
+const EllipseSchema = createShapeSchema(
+  {
+    X: z.coerce.number(), // Center X coordinate
+    Y: z.coerce.number(), // Center Y coordinate
+    RadiusX: z.coerce.number(), // Horizontal radius
+    RadiusY: z.coerce.number() // Vertical radius
+  },
+  'ellipse'
+);
 export type Ellipse = z.infer<typeof EllipseSchema>;
 
-const LineSchema = createShapeSchema({
-  X1: z.coerce.number(),       // Start point X coordinate
-  Y1: z.coerce.number(),       // Start point Y coordinate
-  X2: z.coerce.number(),       // End point X coordinate
-  Y2: z.coerce.number()        // End point Y coordinate
-}, 'line');
+const LineSchema = createShapeSchema(
+  {
+    X1: z.coerce.number(), // Start point X coordinate
+    Y1: z.coerce.number(), // Start point Y coordinate
+    X2: z.coerce.number(), // End point X coordinate
+    Y2: z.coerce.number() // End point Y coordinate
+  },
+  'line'
+);
 export type Line = z.infer<typeof LineSchema>;
 
-const PointSchema = createShapeSchema({
-  X: z.coerce.number(),        // Point X coordinate
-  Y: z.coerce.number()         // Point Y coordinate
-}, 'point');
+const PointSchema = createShapeSchema(
+  {
+    X: z.coerce.number(), // Point X coordinate
+    Y: z.coerce.number() // Point Y coordinate
+  },
+  'point'
+);
 export type Point = z.infer<typeof PointSchema>;
 
-const PolygonSchema = createShapeSchema({
-  Points: z.string()           // Format: "x1,y1 x2,y2 x3,y3 ..." (space-separated coordinate pairs)
-}, 'polygon');
+const PolygonSchema = createShapeSchema(
+  {
+    Points: z.string() // Format: "x1,y1 x2,y2 x3,y3 ..." (space-separated coordinate pairs)
+  },
+  'polygon'
+);
 export type Polygon = z.infer<typeof PolygonSchema>;
 
-const PolylineSchema = createShapeSchema({
-  Points: z.string()           // Format: "x1,y1 x2,y2 x3,y3 ..." (space-separated coordinate pairs)
-}, 'polyline');
+const PolylineSchema = createShapeSchema(
+  {
+    Points: z.string() // Format: "x1,y1 x2,y2 x3,y3 ..." (space-separated coordinate pairs)
+  },
+  'polyline'
+);
 export type Polyline = z.infer<typeof PolylineSchema>;
 
-const LabelSchema = createShapeSchema({
-  X: z.coerce.number(),        // Label X coordinate
-  Y: z.coerce.number()         // Label Y coordinate
-}, 'label');
+const LabelSchema = createShapeSchema(
+  {
+    X: z.coerce.number(), // Label X coordinate
+    Y: z.coerce.number() // Label Y coordinate
+  },
+  'label'
+);
 export type Label = z.infer<typeof LabelSchema>;
 
 // Union type of all shape types
-export type Shape = Rectangle | Ellipse | Line | Point | Polygon | Polyline | Label;
+export type Shape =
+  | Rectangle
+  | Ellipse
+  | Line
+  | Point
+  | Polygon
+  | Polyline
+  | Label;
 
 // Union schema to contain shapes
 // Support BOTH standard OME-XML element names (capitalized singular)
@@ -272,7 +302,7 @@ const ROISchema = z
   .transform(flattenAttributes)
   .transform(data => {
     // Flatten Union into a simple array of shapes
-    const shapes: Array<{ type: string;[key: string]: any }> = [];
+    const shapes: Array<{ type: string; [key: string]: any }> = [];
     if (data.Union) {
       // Capitalized singular (standard OME-XML)
       if (data.Union.Rectangle) shapes.push(...data.Union.Rectangle);

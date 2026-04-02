@@ -1,8 +1,21 @@
-import { OrthographicView, Controller, COORDINATE_SYSTEM, OrbitView } from '@deck.gl/core';
-import { getPhysicalSizeScalingMatrix, MultiscaleImageLayer, ImageLayer, makeBoundingBox, OverviewLayer, ScaleBarLayer, VolumeLayer } from '@vivjs/layers';
-import { getImageSize } from '@vivjs/loaders';
-import { Matrix4 } from '@math.gl/core';
+import {
+  COORDINATE_SYSTEM,
+  Controller,
+  OrbitView,
+  OrthographicView
+} from '@deck.gl/core';
 import { PolygonLayer } from '@deck.gl/layers';
+import { Matrix4 } from '@math.gl/core';
+import {
+  ImageLayer,
+  MultiscaleImageLayer,
+  OverviewLayer,
+  ScaleBarLayer,
+  VolumeLayer,
+  getPhysicalSizeScalingMatrix,
+  makeBoundingBox
+} from '@vivjs/layers';
+import { getImageSize } from '@vivjs/loaders';
 
 class VivView {
   constructor({ id, x = 0, y = 0, height, width }) {
@@ -45,14 +58,19 @@ class VivView {
    * @param {Object} args.props Props for this instance.
    * @returns {Layer} Instance of a layer.
    */
-  getLayers({ viewStates, props }) {
-  }
+  getLayers({ viewStates, props }) {}
 }
 
 function getVivId(id) {
   return `-#${id}#`;
 }
-function getDefaultInitialViewState(loader, viewSize, zoomBackOff = 0, use3d = false, modelMatrix) {
+function getDefaultInitialViewState(
+  loader,
+  viewSize,
+  zoomBackOff = 0,
+  use3d = false,
+  modelMatrix
+) {
   const source = Array.isArray(loader) ? loader[0] : loader;
   const { width: pixelWidth, height: pixelHeight } = getImageSize(source);
   const scale = (modelMatrix || new Matrix4()).getScale();
@@ -60,10 +78,11 @@ function getDefaultInitialViewState(loader, viewSize, zoomBackOff = 0, use3d = f
     scale[0] * pixelWidth,
     scale[1] * pixelHeight
   ];
-  const depth = source.shape[source.labels.indexOf("z")];
-  const zoom = Math.log2(
-    Math.min(viewSize.width / trueWidth, viewSize.height / trueHeight)
-  ) - zoomBackOff;
+  const depth = source.shape[source.labels.indexOf('z')];
+  const zoom =
+    Math.log2(
+      Math.min(viewSize.width / trueWidth, viewSize.height / trueHeight)
+    ) - zoomBackOff;
   const physicalSizeScalingMatrix = getPhysicalSizeScalingMatrix(source);
   const loaderInitialViewState = {
     target: (modelMatrix || new Matrix4()).transformPoint(
@@ -90,14 +109,14 @@ function getImageLayer(id, props) {
   });
 }
 
-const OVERVIEW_VIEW_ID = "overview";
+const OVERVIEW_VIEW_ID = 'overview';
 class OverviewController extends Controller {
   constructor(props) {
     super(props);
-    this.events = ["click"];
+    this.events = ['click'];
   }
   handleEvent(event) {
-    if (event.type !== "click") {
+    if (event.type !== 'click') {
       return;
     }
     let [x, y] = this.getCenter(event);
@@ -121,7 +140,7 @@ class OverviewView extends VivView {
     detailWidth,
     scale = 0.2,
     margin = 25,
-    position = "bottom-right",
+    position = 'bottom-right',
     minimumWidth = 150,
     maximumWidth = 350,
     minimumHeight = 150,
@@ -171,7 +190,7 @@ class OverviewView extends VivView {
         Math.max(detailWidth * scale, minimumWidth)
       );
       this.height = this.width * heightWidthRatio;
-      this.scale = 2 ** (numLevels - 1) / rasterWidth * this.width;
+      this.scale = (2 ** (numLevels - 1) / rasterWidth) * this.width;
     } else {
       const widthHeightRatio = rasterWidth / rasterHeight;
       this.height = Math.min(
@@ -179,7 +198,7 @@ class OverviewView extends VivView {
         Math.max(detailHeight * scale, minimumHeight)
       );
       this.width = this.height * widthHeightRatio;
-      this.scale = 2 ** (numLevels - 1) / rasterHeight * this.height;
+      this.scale = (2 ** (numLevels - 1) / rasterHeight) * this.height;
     }
   }
   /**
@@ -188,22 +207,22 @@ class OverviewView extends VivView {
   _setXY() {
     const { height, width, margin, position, detailWidth, detailHeight } = this;
     switch (position) {
-      case "bottom-right": {
+      case 'bottom-right': {
         this.x = detailWidth - width - margin;
         this.y = detailHeight - height - margin;
         break;
       }
-      case "top-right": {
+      case 'top-right': {
         this.x = detailWidth - width - margin;
         this.y = margin;
         break;
       }
-      case "top-left": {
+      case 'top-left': {
         this.x = margin;
         this.y = margin;
         break;
       }
-      case "bottom-left": {
+      case 'bottom-left': {
         this.x = margin;
         this.y = detailHeight - height - margin;
         break;
@@ -235,17 +254,17 @@ class OverviewView extends VivView {
       height: this.height,
       width: this.width,
       id: this.id,
-      target: [_imageWidth * scale / 2, _imageHeight * scale / 2, 0],
+      target: [(_imageWidth * scale) / 2, (_imageHeight * scale) / 2, 0],
       zoom: -(this.loader.length - 1)
     };
   }
   getLayers({ viewStates, props }) {
     const { detail, overview } = viewStates;
     if (!detail) {
-      throw new Error("Overview requires a viewState with id detail");
+      throw new Error('Overview requires a viewState with id detail');
     }
-    const boundingBox = makeBoundingBox(detail).map(
-      (coords) => coords.map((e) => e * this.scale)
+    const boundingBox = makeBoundingBox(detail).map(coords =>
+      coords.map(e => e * this.scale)
     );
     const overviewLayer = new OverviewLayer(props, {
       id: getVivId(this.id),
@@ -257,7 +276,7 @@ class OverviewView extends VivView {
   }
 }
 
-const DETAIL_VIEW_ID = "detail";
+const DETAIL_VIEW_ID = 'detail';
 class DetailView extends VivView {
   constructor({ id, x = 0, y = 0, height, width }) {
     super({ id, x, y, height, width });
@@ -300,7 +319,11 @@ class SideBySideView extends VivView {
   filterViewState({ viewState, oldViewState, currentViewState }) {
     const { id: viewStateId } = viewState;
     const { id, linkedIds, panLock, zoomLock } = this;
-    if (oldViewState && linkedIds.indexOf(viewStateId) !== -1 && (zoomLock || panLock)) {
+    if (
+      oldViewState &&
+      linkedIds.indexOf(viewStateId) !== -1 &&
+      (zoomLock || panLock)
+    ) {
       const thisViewState = {
         height: currentViewState.height,
         width: currentViewState.width,
@@ -333,22 +356,25 @@ class SideBySideView extends VivView {
         width: thisViewState.width
       };
     }
-    return viewState.id === id ? {
-      id,
-      target: viewState.target,
-      zoom: viewState.zoom,
-      height: viewState.height,
-      width: viewState.width
-    } : {
-      id,
-      target: currentViewState.target,
-      zoom: currentViewState.zoom,
-      height: currentViewState.height,
-      width: currentViewState.width
-    };
+    return viewState.id === id
+      ? {
+          id,
+          target: viewState.target,
+          zoom: viewState.zoom,
+          height: viewState.height,
+          width: viewState.width
+        }
+      : {
+          id,
+          target: currentViewState.target,
+          zoom: currentViewState.zoom,
+          height: currentViewState.height,
+          width: currentViewState.width
+        };
   }
   getLayers({ props, viewStates }) {
-    const { id, viewportOutlineColor, viewportOutlineWidth, height, width } = this;
+    const { id, viewportOutlineColor, viewportOutlineWidth, height, width } =
+      this;
     const layerViewState = viewStates[id];
     const boundingBox = makeBoundingBox({ ...layerViewState, height, width });
     const layers = [getImageLayer(id, props)];
@@ -356,7 +382,7 @@ class SideBySideView extends VivView {
       id: `viewport-outline-${getVivId(id)}`,
       coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
       data: [boundingBox],
-      getPolygon: (f) => f,
+      getPolygon: f => f,
       filled: false,
       stroked: true,
       getLineColor: viewportOutlineColor,
@@ -367,7 +393,7 @@ class SideBySideView extends VivView {
   }
 }
 
-const SCALEBAR_VIEW_ID = "scalebar";
+const SCALEBAR_VIEW_ID = 'scalebar';
 class ScaleBarView extends VivView {
   constructor({
     id,
@@ -375,7 +401,7 @@ class ScaleBarView extends VivView {
     height,
     loader,
     imageViewId,
-    position = "bottom-right",
+    position = 'bottom-right',
     length = 0.05,
     snap = false,
     x = 0,
@@ -455,16 +481,18 @@ class VolumeView extends VivView {
       width,
       x,
       y,
-      orbitAxis: "Y"
+      orbitAxis: 'Y'
     });
   }
   filterViewState({ viewState }) {
     const { id, target, useFixedAxis } = this;
-    return viewState.id === id ? {
-      ...viewState,
-      // fix the center of the camera if desired
-      target: useFixedAxis ? target : viewState.target
-    } : null;
+    return viewState.id === id
+      ? {
+          ...viewState,
+          // fix the center of the camera if desired
+          target: useFixedAxis ? target : viewState.target
+        }
+      : null;
   }
   getLayers({ props }) {
     const { loader } = props;
@@ -478,4 +506,16 @@ class VolumeView extends VivView {
   }
 }
 
-export { DETAIL_VIEW_ID, DetailView, OVERVIEW_VIEW_ID, OverviewView, SCALEBAR_VIEW_ID, ScaleBarView, SideBySideView, VivView, VolumeView, getDefaultInitialViewState, getVivId };
+export {
+  DETAIL_VIEW_ID,
+  DetailView,
+  OVERVIEW_VIEW_ID,
+  OverviewView,
+  SCALEBAR_VIEW_ID,
+  ScaleBarView,
+  SideBySideView,
+  VivView,
+  VolumeView,
+  getDefaultInitialViewState,
+  getVivId
+};

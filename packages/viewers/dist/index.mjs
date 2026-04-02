@@ -1,11 +1,31 @@
 import DeckGL from '@deck.gl/react';
-import { getVivId, DETAIL_VIEW_ID, getDefaultInitialViewState, DetailView, SCALEBAR_VIEW_ID, ScaleBarView, OVERVIEW_VIEW_ID, OverviewView, SideBySideView, VolumeView } from '@vivjs/views';
+import {
+  ColorPalette3DExtensions,
+  ColorPaletteExtension
+} from '@vivjs/extensions';
+import {
+  DETAIL_VIEW_ID,
+  DetailView,
+  OVERVIEW_VIEW_ID,
+  OverviewView,
+  SCALEBAR_VIEW_ID,
+  ScaleBarView,
+  SideBySideView,
+  VolumeView,
+  getDefaultInitialViewState,
+  getVivId
+} from '@vivjs/views';
 import equal from 'fast-deep-equal';
 import * as React from 'react';
-import { ColorPaletteExtension, ColorPalette3DExtensions } from '@vivjs/extensions';
 
 const areViewStatesEqual = (viewState, otherViewState) => {
-  return otherViewState === viewState || viewState?.zoom === otherViewState?.zoom && viewState?.rotationX === otherViewState?.rotationX && viewState?.rotationOrbit === otherViewState?.rotationOrbit && equal(viewState?.target, otherViewState?.target);
+  return (
+    otherViewState === viewState ||
+    (viewState?.zoom === otherViewState?.zoom &&
+      viewState?.rotationX === otherViewState?.rotationX &&
+      viewState?.rotationOrbit === otherViewState?.rotationOrbit &&
+      equal(viewState?.target, otherViewState?.target))
+  );
 };
 class VivViewerWrapper extends React.PureComponent {
   constructor(props) {
@@ -15,9 +35,9 @@ class VivViewerWrapper extends React.PureComponent {
     };
     const { viewStates } = this.state;
     const { views, viewStates: initialViewStates } = this.props;
-    views.forEach((view) => {
+    views.forEach(view => {
       viewStates[view.id] = view.filterViewState({
-        viewState: initialViewStates.find((v) => v.id === view.id)
+        viewState: initialViewStates.find(v => v.id === view.id)
       });
     });
     this._onViewStateChange = this._onViewStateChange.bind(this);
@@ -42,15 +62,16 @@ class VivViewerWrapper extends React.PureComponent {
    */
   _onViewStateChange({ viewId, viewState, interactionState, oldViewState }) {
     const { views, onViewStateChange } = this.props;
-    viewState = onViewStateChange?.({
-      viewId,
-      viewState,
-      interactionState,
-      oldViewState
-    }) || viewState;
-    this.setState((prevState) => {
+    viewState =
+      onViewStateChange?.({
+        viewId,
+        viewState,
+        interactionState,
+        oldViewState
+      }) || viewState;
+    this.setState(prevState => {
       const viewStates = {};
-      views.forEach((view) => {
+      views.forEach(view => {
         const currentViewState = prevState.viewStates[view.id];
         viewStates[view.id] = view.filterViewState({
           viewState: { ...viewState, id: viewId },
@@ -67,15 +88,15 @@ class VivViewerWrapper extends React.PureComponent {
     const { views } = props;
     const viewStates = { ...this.state.viewStates };
     let anyChanged = false;
-    views.forEach((view) => {
+    views.forEach(view => {
       const currViewState = props.viewStates?.find(
-        (viewState) => viewState.id === view.id
+        viewState => viewState.id === view.id
       );
       if (!currViewState) {
         return;
       }
       const prevViewState = prevProps.viewStates?.find(
-        (viewState) => viewState.id === view.id
+        viewState => viewState.id === view.id
       );
       if (areViewStatesEqual(currViewState, prevViewState)) {
         return;
@@ -102,16 +123,22 @@ class VivViewerWrapper extends React.PureComponent {
    */
   static getDerivedStateFromProps(props, prevState) {
     const { views, viewStates: viewStatesProps } = props;
-    if (views.some(
-      (view) => !prevState.viewStates[view.id] || view.height !== prevState.viewStates[view.id].height || view.width !== prevState.viewStates[view.id].width
-    )) {
+    if (
+      views.some(
+        view =>
+          !prevState.viewStates[view.id] ||
+          view.height !== prevState.viewStates[view.id].height ||
+          view.width !== prevState.viewStates[view.id].width
+      )
+    ) {
       const viewStates = {};
-      views.forEach((view) => {
+      views.forEach(view => {
         const { height, width } = view;
         const currentViewState = prevState.viewStates[view.id];
         viewStates[view.id] = view.filterViewState({
           viewState: {
-            ...currentViewState || viewStatesProps.find((v) => v.id === view.id),
+            ...(currentViewState ||
+              viewStatesProps.find(v => v.id === view.id)),
             height,
             width,
             id: view.id
@@ -131,11 +158,9 @@ class VivViewerWrapper extends React.PureComponent {
     if (!hoverHooks || !coordinate || !layer) {
       return null;
     }
-    const { handleValue = () => {
-    }, handleCoordnate = () => {
-    } } = hoverHooks;
+    const { handleValue = () => {}, handleCoordnate = () => {} } = hoverHooks;
     let hoverData;
-    if (layer.id.includes("Tiled")) {
+    if (layer.id.includes('Tiled')) {
       if (!tile?.content) {
         return null;
       }
@@ -164,7 +189,7 @@ class VivViewerWrapper extends React.PureComponent {
         Math.floor((coordinate[1] - bounds[3]) / layerZoomScale)
       ];
       const coords = dataCoords[1] * width + dataCoords[0];
-      hoverData = data.map((d) => d[coords]);
+      hoverData = data.map(d => d[coords]);
     } else {
       const { channelData } = layer.props;
       if (!channelData) {
@@ -182,7 +207,7 @@ class VivViewerWrapper extends React.PureComponent {
         Math.floor((coordinate[1] - bounds[3]) / layerZoomScale)
       ];
       const coords = dataCoords[1] * width + dataCoords[0];
-      hoverData = data.map((d) => d[coords]);
+      hoverData = data.map(d => d[coords]);
     }
     handleValue(hoverData);
     handleCoordnate(coordinate);
@@ -194,8 +219,8 @@ class VivViewerWrapper extends React.PureComponent {
     const { onHover } = this;
     const { viewStates } = this.state;
     const { views, layerProps } = this.props;
-    return views.map(
-      (view, i) => view.getLayers({
+    return views.map((view, i) =>
+      view.getLayers({
         viewStates,
         props: {
           ...layerProps[i],
@@ -207,7 +232,7 @@ class VivViewerWrapper extends React.PureComponent {
   render() {
     const { views, randomize, useDevicePixels = true, deckProps } = this.props;
     const { viewStates } = this.state;
-    const deckGLViews = views.map((view) => view.getDeckGlView());
+    const deckGLViews = views.map(view => view.getDeckGlView());
     if (randomize) {
       const random = Math.random();
       const holdFirstElement = deckGLViews[0];
@@ -216,26 +241,27 @@ class VivViewerWrapper extends React.PureComponent {
       deckGLViews[0] = deckGLViews[randomizedIndex];
       deckGLViews[randomizedIndex] = holdFirstElement;
     }
-    return /* @__PURE__ */ React.createElement(
-      DeckGL,
-      {
-        ...deckProps ?? {},
-        layerFilter: this.layerFilter,
-        layers: deckProps?.layers === void 0 ? [...this._renderLayers()] : [...this._renderLayers(), ...deckProps.layers],
-        onViewStateChange: this._onViewStateChange,
-        views: deckGLViews,
-        viewState: viewStates,
-        useDevicePixels,
-        getCursor: ({ isDragging }) => {
-          return isDragging ? "grabbing" : "crosshair";
-        }
+    return /* @__PURE__ */ React.createElement(DeckGL, {
+      ...(deckProps ?? {}),
+      layerFilter: this.layerFilter,
+      layers:
+        deckProps?.layers === void 0
+          ? [...this._renderLayers()]
+          : [...this._renderLayers(), ...deckProps.layers],
+      onViewStateChange: this._onViewStateChange,
+      views: deckGLViews,
+      viewState: viewStates,
+      useDevicePixels,
+      getCursor: ({ isDragging }) => {
+        return isDragging ? 'grabbing' : 'crosshair';
       }
-    );
+    });
   }
 }
-const VivViewer = (props) => /* @__PURE__ */ React.createElement(VivViewerWrapper, { ...props });
+const VivViewer = props =>
+  /* @__PURE__ */ React.createElement(VivViewerWrapper, { ...props });
 
-const PictureInPictureViewer = (props) => {
+const PictureInPictureViewer = props => {
   const {
     loader,
     contrastLimits,
@@ -246,9 +272,7 @@ const PictureInPictureViewer = (props) => {
     overview,
     overviewOn,
     selections,
-    hoverHooks = { handleValue: () => {
-    }, handleCoordinate: () => {
-    } },
+    hoverHooks = { handleValue: () => {}, handleCoordinate: () => {} },
     height,
     width,
     lensEnabled = false,
@@ -265,9 +289,12 @@ const PictureInPictureViewer = (props) => {
     extensions = [new ColorPaletteExtension()],
     deckProps
   } = props;
-  const detailViewState = viewStatesProp?.find((v) => v.id === DETAIL_VIEW_ID);
+  const detailViewState = viewStatesProp?.find(v => v.id === DETAIL_VIEW_ID);
   const baseViewState = React.useMemo(() => {
-    return detailViewState || getDefaultInitialViewState(loader, { height, width }, 0.5);
+    return (
+      detailViewState ||
+      getDefaultInitialViewState(loader, { height, width }, 0.5)
+    );
   }, [loader, detailViewState]);
   const detailView = new DetailView({
     id: DETAIL_VIEW_ID,
@@ -294,7 +321,7 @@ const PictureInPictureViewer = (props) => {
   const layerProps = [layerConfig];
   const viewStates = [{ ...baseViewState, id: DETAIL_VIEW_ID }];
   const scalebarViewState = viewStatesProp?.find(
-    (v) => v.id === SCALEBAR_VIEW_ID
+    v => v.id === SCALEBAR_VIEW_ID
   ) || { ...baseViewState, id: SCALEBAR_VIEW_ID };
   const scaleBarView = new ScaleBarView({
     id: SCALEBAR_VIEW_ID,
@@ -309,7 +336,7 @@ const PictureInPictureViewer = (props) => {
   viewStates.push(scalebarViewState);
   if (overviewOn && loader) {
     const overviewViewState = viewStatesProp?.find(
-      (v) => v.id === OVERVIEW_VIEW_ID
+      v => v.id === OVERVIEW_VIEW_ID
     ) || { ...baseViewState, id: OVERVIEW_VIEW_ID };
     const overviewView = new OverviewView({
       id: OVERVIEW_VIEW_ID,
@@ -323,23 +350,19 @@ const PictureInPictureViewer = (props) => {
     layerProps.push({ ...layerConfig, lensEnabled: false });
     viewStates.push(overviewViewState);
   }
-  if (!loader)
-    return null;
-  return /* @__PURE__ */ React.createElement(
-    VivViewer,
-    {
-      layerProps,
-      views,
-      viewStates,
-      hoverHooks,
-      onViewStateChange,
-      onHover,
-      deckProps
-    }
-  );
+  if (!loader) return null;
+  return /* @__PURE__ */ React.createElement(VivViewer, {
+    layerProps,
+    views,
+    viewStates,
+    hoverHooks,
+    onViewStateChange,
+    onHover,
+    deckProps
+  });
 };
 
-const SideBySideViewer = (props) => {
+const SideBySideViewer = props => {
   const {
     loader,
     contrastLimits,
@@ -365,12 +388,12 @@ const SideBySideViewer = (props) => {
     extensions = [new ColorPaletteExtension()],
     deckProps
   } = props;
-  const leftViewState = viewStatesProp?.find((v) => v.id === "left");
-  const rightViewState = viewStatesProp?.find((v) => v.id === "right");
+  const leftViewState = viewStatesProp?.find(v => v.id === 'left');
+  const rightViewState = viewStatesProp?.find(v => v.id === 'right');
   const leftId = `left-${SCALEBAR_VIEW_ID}`;
   const rightId = `right-${SCALEBAR_VIEW_ID}`;
-  const leftScalebarViewState = viewStatesProp?.find((v) => v.id === leftId);
-  const rightScalebarViewState = viewStatesProp?.find((v) => v.id === rightId);
+  const leftScalebarViewState = viewStatesProp?.find(v => v.id === leftId);
+  const rightScalebarViewState = viewStatesProp?.find(v => v.id === rightId);
   const viewStates = React.useMemo(() => {
     if (leftViewState && rightViewState) {
       return viewStatesProp;
@@ -381,24 +404,24 @@ const SideBySideViewer = (props) => {
       0.5
     );
     return [
-      leftViewState || { ...defaultViewState, id: "left" },
-      rightViewState || { ...defaultViewState, id: "right" },
+      leftViewState || { ...defaultViewState, id: 'left' },
+      rightViewState || { ...defaultViewState, id: 'right' },
       leftScalebarViewState || { ...defaultViewState, id: leftId },
       rightScalebarViewState || { ...defaultViewState, id: rightId }
     ];
   }, [loader, leftViewState, rightViewState]);
   const detailViewLeft = new SideBySideView({
-    id: "left",
-    linkedIds: ["right"],
+    id: 'left',
+    linkedIds: ['right'],
     panLock,
     zoomLock,
     height,
     width: width / 2
   });
   const detailViewRight = new SideBySideView({
-    id: "right",
+    id: 'right',
     x: width / 2,
-    linkedIds: ["left"],
+    linkedIds: ['left'],
     panLock,
     zoomLock,
     height,
@@ -426,7 +449,7 @@ const SideBySideViewer = (props) => {
     height,
     loader,
     snap: snapScaleBar,
-    imageViewId: "left"
+    imageViewId: 'left'
   });
   const rightScaleBarView = new ScaleBarView({
     id: rightId,
@@ -435,7 +458,7 @@ const SideBySideViewer = (props) => {
     x: width / 2,
     loader,
     snap: snapScaleBar,
-    imageViewId: "right"
+    imageViewId: 'right'
   });
   const views = [
     detailViewRight,
@@ -445,21 +468,20 @@ const SideBySideViewer = (props) => {
   ];
   const layerProps = [layerConfig, layerConfig, layerConfig, layerConfig];
   const finalViewStates = [...viewStates];
-  return loader ? /* @__PURE__ */ React.createElement(
-    VivViewer,
-    {
-      layerProps,
-      views,
-      randomize: true,
-      onViewStateChange,
-      onHover,
-      viewStates: finalViewStates,
-      deckProps
-    }
-  ) : null;
+  return loader
+    ? /* @__PURE__ */ React.createElement(VivViewer, {
+        layerProps,
+        views,
+        randomize: true,
+        onViewStateChange,
+        onHover,
+        viewStates: finalViewStates,
+        deckProps
+      })
+    : null;
 };
 
-const VolumeViewer = (props) => {
+const VolumeViewer = props => {
   const {
     loader,
     contrastLimits,
@@ -481,7 +503,7 @@ const VolumeViewer = (props) => {
     useFixedAxis = true,
     extensions = [new ColorPalette3DExtensions.AdditiveBlendExtension()]
   } = props;
-  const volumeViewState = viewStatesProp?.find((state) => state?.id === "3d");
+  const volumeViewState = viewStatesProp?.find(state => state?.id === '3d');
   const initialViewState = React.useMemo(() => {
     if (volumeViewState) {
       return volumeViewState;
@@ -499,9 +521,9 @@ const VolumeViewer = (props) => {
       rotationOrbit: 0
     };
   }, [loader, resolution, modelMatrix]);
-  const viewStates = [volumeViewState || { ...initialViewState, id: "3d" }];
+  const viewStates = [volumeViewState || { ...initialViewState, id: '3d' }];
   const volumeView = new VolumeView({
-    id: "3d",
+    id: '3d',
     target: viewStates[0].target,
     useFixedAxis
   });
@@ -524,16 +546,15 @@ const VolumeViewer = (props) => {
   };
   const views = [volumeView];
   const layerProps = [layerConfig];
-  return loader ? /* @__PURE__ */ React.createElement(
-    VivViewer,
-    {
-      layerProps,
-      views,
-      viewStates,
-      onViewStateChange,
-      useDevicePixels: false
-    }
-  ) : null;
+  return loader
+    ? /* @__PURE__ */ React.createElement(VivViewer, {
+        layerProps,
+        views,
+        viewStates,
+        onViewStateChange,
+        useDevicePixels: false
+      })
+    : null;
 };
 
 export { PictureInPictureViewer, SideBySideViewer, VivViewer, VolumeViewer };

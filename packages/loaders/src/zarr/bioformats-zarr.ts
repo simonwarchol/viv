@@ -24,10 +24,10 @@ export async function load(
   const images = parsed.images || [];
   const rois = parsed.rois || [];
   const roiRefs = parsed.roiRefs || [];
-  
+
   // Create a map of ROI IDs to ROI objects for quick lookup
   const roiMap = new Map(rois.map(roi => [roi.ID, roi]));
-  
+
   // Add ROIs to the first image based on ROIRefs
   let imgMeta = images[0];
   if (imgMeta) {
@@ -36,12 +36,12 @@ export async function load(
       // For now, we'll include all ROIRefs since we don't have explicit image association
       return true; // TODO: Add proper image-ROI association logic
     });
-    
+
     // Get the actual ROI objects referenced by the ROIRefs
     const imageROIs = imageROIRefs
       .map(roiRef => roiMap.get(roiRef.ID))
       .filter(Boolean);
-    
+
     const { ROIRef: _omitROIRef, ...imgWithoutRefs } = imgMeta as any;
     imgMeta = { ...imgWithoutRefs, ROIs: imageROIs };
   }

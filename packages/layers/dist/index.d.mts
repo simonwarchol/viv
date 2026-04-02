@@ -1,67 +1,67 @@
-import * as _vivjs_types from '@vivjs/types';
-import { Matrix4 } from '@math.gl/core';
+import type { Matrix4 } from '@math.gl/core';
+import type * as _vivjs_types from '@vivjs/types';
 
 type LayerProps$7 = {
-    /**
-     * List of [begin, end] values to control each channel's ramp function.
-     */
-    contrastLimits: Array<Array<number>>;
-    /**
-     * List of boolean values for each channel for whether or not it is visible.
-     */
-    channelsVisible: Array<boolean>;
-    /**
-     * Image pyramid. PixelSource[], where each PixelSource is decreasing in shape.
-     */
-    loader: any[];
-    /**
-     * Selection to be used for fetching data.
-     */
-    selections: any[];
-    /**
-     * Override for the possible max/min values (i.e something different than 65535 for uint16/'<u2').
-     */
-    domain?: Array<Array<number>> | undefined;
-    /**
-     * Id for the current view.  This needs to match the viewState id in deck.gl and is necessary for the lens.
-     */
-    viewportId?: string | undefined;
-    /**
-     * Unique identifier for this layer.
-     */
-    id?: string | undefined;
-    /**
-     * Custom override for handle tile fetching errors.
-     */
-    onTileError?: Function | undefined;
-    /**
-     * Hook function from deck.gl to handle hover objects.
-     */
-    onHover?: Function | undefined;
-    /**
-     * Maximum parallel ongoing requests allowed before aborting.
-     */
-    maxRequests?: number | undefined;
-    /**
-     * Hook function from deck.gl to handle clicked-on objects.
-     */
-    onClick?: Function | undefined;
-    /**
-     * Math.gl Matrix4 object containing an affine transformation to be applied to the image.
-     */
-    modelMatrix?: Object | undefined;
-    /**
-     * 'best-available' | 'no-overlap' | 'never' will be passed to TileLayer. A default will be chosen based on opacity.
-     */
-    refinementStrategy?: string | undefined;
-    /**
-     * Whether to exclude the background image. The background image is also excluded for opacity!=1.
-     */
-    excludeBackground?: boolean | undefined;
-    /**
-     * [deck.gl extensions](https://deck.gl/docs/developer-guide/custom-layers/layer-extensions) to add to the layers.
-     */
-    extensions?: any[] | undefined;
+  /**
+   * List of [begin, end] values to control each channel's ramp function.
+   */
+  contrastLimits: Array<Array<number>>;
+  /**
+   * List of boolean values for each channel for whether or not it is visible.
+   */
+  channelsVisible: Array<boolean>;
+  /**
+   * Image pyramid. PixelSource[], where each PixelSource is decreasing in shape.
+   */
+  loader: any[];
+  /**
+   * Selection to be used for fetching data.
+   */
+  selections: any[];
+  /**
+   * Override for the possible max/min values (i.e something different than 65535 for uint16/'<u2').
+   */
+  domain?: Array<Array<number>> | undefined;
+  /**
+   * Id for the current view.  This needs to match the viewState id in deck.gl and is necessary for the lens.
+   */
+  viewportId?: string | undefined;
+  /**
+   * Unique identifier for this layer.
+   */
+  id?: string | undefined;
+  /**
+   * Custom override for handle tile fetching errors.
+   */
+  onTileError?: Function | undefined;
+  /**
+   * Hook function from deck.gl to handle hover objects.
+   */
+  onHover?: Function | undefined;
+  /**
+   * Maximum parallel ongoing requests allowed before aborting.
+   */
+  maxRequests?: number | undefined;
+  /**
+   * Hook function from deck.gl to handle clicked-on objects.
+   */
+  onClick?: Function | undefined;
+  /**
+   * Math.gl Matrix4 object containing an affine transformation to be applied to the image.
+   */
+  modelMatrix?: Object | undefined;
+  /**
+   * 'best-available' | 'no-overlap' | 'never' will be passed to TileLayer. A default will be chosen based on opacity.
+   */
+  refinementStrategy?: string | undefined;
+  /**
+   * Whether to exclude the background image. The background image is also excluded for opacity!=1.
+   */
+  excludeBackground?: boolean | undefined;
+  /**
+   * [deck.gl extensions](https://deck.gl/docs/developer-guide/custom-layers/layer-extensions) to add to the layers.
+   */
+  extensions?: any[] | undefined;
 };
 /**
  * @typedef LayerProps
@@ -87,58 +87,58 @@ type LayerProps$7 = {
  * @ignore
  */
 declare const MultiscaleImageLayer: {
-    new <S extends string[]>(...props: _vivjs_types.Viv<LayerProps$7, S>[]): any;
+  new <S extends string[]>(...props: _vivjs_types.Viv<LayerProps$7, S>[]): any;
 };
 
 type LayerProps$6 = {
-    /**
-     * List of [begin, end] values to control each channel's ramp function.
-     */
-    contrastLimits: Array<Array<number>>;
-    /**
-     * List of boolean values for each channel for whether or not it is visible.
-     */
-    channelsVisible: Array<boolean>;
-    /**
-     * PixelSource. Represents an N-dimensional image.
-     */
-    loader: Object;
-    /**
-     * Selection to be used for fetching data.
-     */
-    selections: any[];
-    /**
-     * Override for the possible max/min values (i.e something different than 65535 for uint16/'<u2').
-     */
-    domain?: Array<Array<number>> | undefined;
-    /**
-     * Id for the current view.  This needs to match the viewState id in deck.gl and is necessary for the lens.
-     */
-    viewportId?: string | undefined;
-    /**
-     * Hook function from deck.gl to handle hover objects.
-     */
-    onHover?: Function | undefined;
-    /**
-     * Hook function from deck.gl to handle clicked-on objects.
-     */
-    onClick?: Function | undefined;
-    /**
-     * Math.gl Matrix4 object containing an affine transformation to be applied to the image.
-     */
-    modelMatrix?: Object | undefined;
-    /**
-     * Function that gets called when the data in the viewport loads.
-     */
-    onViewportLoad?: Function | undefined;
-    /**
-     * Unique identifier for this layer.
-     */
-    id?: string | undefined;
-    /**
-     * [deck.gl extensions](https://deck.gl/docs/developer-guide/custom-layers/layer-extensions) to add to the layers.
-     */
-    extensions?: any[] | undefined;
+  /**
+   * List of [begin, end] values to control each channel's ramp function.
+   */
+  contrastLimits: Array<Array<number>>;
+  /**
+   * List of boolean values for each channel for whether or not it is visible.
+   */
+  channelsVisible: Array<boolean>;
+  /**
+   * PixelSource. Represents an N-dimensional image.
+   */
+  loader: Object;
+  /**
+   * Selection to be used for fetching data.
+   */
+  selections: any[];
+  /**
+   * Override for the possible max/min values (i.e something different than 65535 for uint16/'<u2').
+   */
+  domain?: Array<Array<number>> | undefined;
+  /**
+   * Id for the current view.  This needs to match the viewState id in deck.gl and is necessary for the lens.
+   */
+  viewportId?: string | undefined;
+  /**
+   * Hook function from deck.gl to handle hover objects.
+   */
+  onHover?: Function | undefined;
+  /**
+   * Hook function from deck.gl to handle clicked-on objects.
+   */
+  onClick?: Function | undefined;
+  /**
+   * Math.gl Matrix4 object containing an affine transformation to be applied to the image.
+   */
+  modelMatrix?: Object | undefined;
+  /**
+   * Function that gets called when the data in the viewport loads.
+   */
+  onViewportLoad?: Function | undefined;
+  /**
+   * Unique identifier for this layer.
+   */
+  id?: string | undefined;
+  /**
+   * [deck.gl extensions](https://deck.gl/docs/developer-guide/custom-layers/layer-extensions) to add to the layers.
+   */
+  extensions?: any[] | undefined;
 };
 /**
  * @typedef LayerProps
@@ -161,50 +161,50 @@ type LayerProps$6 = {
  * @ignore
  */
 declare const ImageLayer: {
-    new <S extends string[]>(...props: _vivjs_types.Viv<LayerProps$6, S>[]): any;
+  new <S extends string[]>(...props: _vivjs_types.Viv<LayerProps$6, S>[]): any;
 };
 
 type LayerProps$5 = {
-    /**
-     * List of [begin, end] values to control each channel's ramp function.
-     */
-    contrastLimits: Array<Array<number>>;
-    /**
-     * List of boolean values for each channel for whether or not it is visible.
-     */
-    channelsVisible: Array<boolean>;
-    /**
-     * PixelSource[]. Assumes multiscale if loader.length > 1.
-     */
-    loader: any[];
-    /**
-     * Selection to be used for fetching data.
-     */
-    selections: any[];
-    /**
-     * [r, g, b] color of the bounding box (default: [255, 0, 0]).
-     */
-    boundingBoxColor?: Array<number> | undefined;
-    /**
-     * Width of the bounding box in px (default: 1).
-     */
-    boundingBoxOutlineWidth?: number | undefined;
-    /**
-     * [r, g, b] color of the outline (default: [255, 190, 0]).
-     */
-    viewportOutlineColor?: Array<number> | undefined;
-    /**
-     * Viewport outline width in px (default: 2).
-     */
-    viewportOutlineWidth?: number | undefined;
-    /**
-     * Unique identifier for this layer.
-     */
-    id?: string | undefined;
-    /**
-     * [deck.gl extensions](https://deck.gl/docs/developer-guide/custom-layers/layer-extensions) to add to the layers.
-     */
-    extensions?: any[] | undefined;
+  /**
+   * List of [begin, end] values to control each channel's ramp function.
+   */
+  contrastLimits: Array<Array<number>>;
+  /**
+   * List of boolean values for each channel for whether or not it is visible.
+   */
+  channelsVisible: Array<boolean>;
+  /**
+   * PixelSource[]. Assumes multiscale if loader.length > 1.
+   */
+  loader: any[];
+  /**
+   * Selection to be used for fetching data.
+   */
+  selections: any[];
+  /**
+   * [r, g, b] color of the bounding box (default: [255, 0, 0]).
+   */
+  boundingBoxColor?: Array<number> | undefined;
+  /**
+   * Width of the bounding box in px (default: 1).
+   */
+  boundingBoxOutlineWidth?: number | undefined;
+  /**
+   * [r, g, b] color of the outline (default: [255, 190, 0]).
+   */
+  viewportOutlineColor?: Array<number> | undefined;
+  /**
+   * Viewport outline width in px (default: 2).
+   */
+  viewportOutlineWidth?: number | undefined;
+  /**
+   * Unique identifier for this layer.
+   */
+  id?: string | undefined;
+  /**
+   * [deck.gl extensions](https://deck.gl/docs/developer-guide/custom-layers/layer-extensions) to add to the layers.
+   */
+  extensions?: any[] | undefined;
 };
 /**
  * @typedef LayerProps
@@ -225,39 +225,39 @@ type LayerProps$5 = {
  * @ignore
  */
 declare const OverviewLayer: {
-    new <S extends string[]>(...props: _vivjs_types.Viv<LayerProps$5, S>[]): any;
+  new <S extends string[]>(...props: _vivjs_types.Viv<LayerProps$5, S>[]): any;
 };
 
 type LayerProps$4 = {
-    /**
-     * Physical unit size per pixel at full resolution.
-     */
-    unit: string;
-    /**
-     * Physical size of a pixel.
-     */
-    size: number;
-    /**
-     * The current viewState for the desired image.  We cannot internally use this.context.viewport because it is one frame behind:
-     * https://github.com/visgl/deck.gl/issues/4504
-     */
-    imageViewState: Object;
-    /**
-     * Boudning box of the view in which this should render.
-     */
-    boundingBox?: any[] | undefined;
-    /**
-     * Id from the parent layer.
-     */
-    id?: string | undefined;
-    /**
-     * Value from 0 to 1 representing the portion of the view to be used for the length part of the scale bar.
-     */
-    length?: number | undefined;
-    /**
-     * If true, aligns the scale bar value to predefined intervals for clearer readings, adjusting units if necessary.
-     */
-    snap: boolean;
+  /**
+   * Physical unit size per pixel at full resolution.
+   */
+  unit: string;
+  /**
+   * Physical size of a pixel.
+   */
+  size: number;
+  /**
+   * The current viewState for the desired image.  We cannot internally use this.context.viewport because it is one frame behind:
+   * https://github.com/visgl/deck.gl/issues/4504
+   */
+  imageViewState: Object;
+  /**
+   * Boudning box of the view in which this should render.
+   */
+  boundingBox?: any[] | undefined;
+  /**
+   * Id from the parent layer.
+   */
+  id?: string | undefined;
+  /**
+   * Value from 0 to 1 representing the portion of the view to be used for the length part of the scale bar.
+   */
+  length?: number | undefined;
+  /**
+   * If true, aligns the scale bar value to predefined intervals for clearer readings, adjusting units if necessary.
+   */
+  snap: boolean;
 };
 /**
  * @typedef LayerProps
@@ -276,70 +276,70 @@ type LayerProps$4 = {
  * @ignore
  */
 declare const ScaleBarLayer: {
-    new (...props: LayerProps$4[]): any;
+  new (...props: LayerProps$4[]): any;
 };
 
 type LayerProps$3 = {
-    /**
-     * List of [begin, end] values to control each channel's ramp function.
-     */
-    contrastLimits: Array<Array<number>>;
-    /**
-     * List of boolean values for each channel for whether or not it is visible.
-     */
-    channelsVisible: Array<boolean>;
-    /**
-     * PixelSource[]. Represents an N-dimensional image.
-     */
-    loader: any[];
-    /**
-     * Selection to be used for fetching data.
-     */
-    selections: any[];
-    /**
-     * Override for the possible max/min values (i.e something different than 65535 for uint16/'<u2').
-     */
-    domain?: Array<Array<number>> | undefined;
-    /**
-     * Resolution at which you would like to see the volume and load it into memory (0 highest, loader.length -1 the lowest default 0)
-     */
-    resolution?: number | undefined;
-    /**
-     * A column major affine transformation to be applied to the volume.
-     */
-    modelMatrix?: Object | undefined;
-    /**
-     * 0-width (physical coordinates) interval on which to slice the volume.
-     */
-    xSlice?: Array<number> | undefined;
-    /**
-     * 0-height (physical coordinates) interval on which to slice the volume.
-     */
-    ySlice?: Array<number> | undefined;
-    /**
-     * 0-depth (physical coordinates) interval on which to slice the volume.
-     */
-    zSlice?: Array<number> | undefined;
-    /**
-     * Function that gets called when the data in the viewport loads.
-     */
-    onViewportLoad?: Function | undefined;
-    /**
-     * List of math.gl [Plane](https://math.gl/modules/culling/docs/api-reference/plane) objects.
-     */
-    clippingPlanes?: Array<Object> | undefined;
-    /**
-     * Whether or not to use the default progress text + indicator (default is true)
-     */
-    useProgressIndicator?: boolean | undefined;
-    /**
-     * A callback to be used for getting updates of the progress, ({ progress }) => {}
-     */
-    onUpdate?: Function | undefined;
-    /**
-     * [deck.gl extensions](https://deck.gl/docs/developer-guide/custom-layers/layer-extensions) to add to the layers - default is AdditiveBlendExtension from ColorPalette3DExtensions.
-     */
-    extensions?: any[] | undefined;
+  /**
+   * List of [begin, end] values to control each channel's ramp function.
+   */
+  contrastLimits: Array<Array<number>>;
+  /**
+   * List of boolean values for each channel for whether or not it is visible.
+   */
+  channelsVisible: Array<boolean>;
+  /**
+   * PixelSource[]. Represents an N-dimensional image.
+   */
+  loader: any[];
+  /**
+   * Selection to be used for fetching data.
+   */
+  selections: any[];
+  /**
+   * Override for the possible max/min values (i.e something different than 65535 for uint16/'<u2').
+   */
+  domain?: Array<Array<number>> | undefined;
+  /**
+   * Resolution at which you would like to see the volume and load it into memory (0 highest, loader.length -1 the lowest default 0)
+   */
+  resolution?: number | undefined;
+  /**
+   * A column major affine transformation to be applied to the volume.
+   */
+  modelMatrix?: Object | undefined;
+  /**
+   * 0-width (physical coordinates) interval on which to slice the volume.
+   */
+  xSlice?: Array<number> | undefined;
+  /**
+   * 0-height (physical coordinates) interval on which to slice the volume.
+   */
+  ySlice?: Array<number> | undefined;
+  /**
+   * 0-depth (physical coordinates) interval on which to slice the volume.
+   */
+  zSlice?: Array<number> | undefined;
+  /**
+   * Function that gets called when the data in the viewport loads.
+   */
+  onViewportLoad?: Function | undefined;
+  /**
+   * List of math.gl [Plane](https://math.gl/modules/culling/docs/api-reference/plane) objects.
+   */
+  clippingPlanes?: Array<Object> | undefined;
+  /**
+   * Whether or not to use the default progress text + indicator (default is true)
+   */
+  useProgressIndicator?: boolean | undefined;
+  /**
+   * A callback to be used for getting updates of the progress, ({ progress }) => {}
+   */
+  onUpdate?: Function | undefined;
+  /**
+   * [deck.gl extensions](https://deck.gl/docs/developer-guide/custom-layers/layer-extensions) to add to the layers - default is AdditiveBlendExtension from ColorPalette3DExtensions.
+   */
+  extensions?: any[] | undefined;
 };
 /**
  * @typedef LayerProps
@@ -365,47 +365,47 @@ type LayerProps$3 = {
  * @ignore
  */
 declare const VolumeLayer: {
-    new <S extends string[]>(...props: _vivjs_types.Viv<LayerProps$3, S>[]): any;
+  new <S extends string[]>(...props: _vivjs_types.Viv<LayerProps$3, S>[]): any;
 };
 
 type LayerProps$2 = {
-    /**
-     * List of [begin, end] values to control each channel's ramp function.
-     */
-    contrastLimits: Array<Array<number>>;
-    /**
-     * List of boolean values for each channel for whether or not it is visible.
-     */
-    channelsVisible: Array<boolean>;
-    /**
-     * Dtype for the layer.
-     */
-    dtype: string;
-    /**
-     * Override for the possible max/min values (i.e something different than 65535 for uint16/'<u2').
-     */
-    domain?: Array<number> | undefined;
-    /**
-     * Unique identifier for this layer.
-     */
-    id?: string | undefined;
-    /**
-     * Hook function from deck.gl to handle hover objects.
-     */
-    onHover?: Function | undefined;
-    /**
-     * Hook function from deck.gl to handle clicked-on objects.
-     */
-    onClick?: Function | undefined;
-    /**
-     * Math.gl Matrix4 object containing an affine transformation to be applied to the image.
-     * Thus setting this to a truthy value (with a colormap set) indicates that the shader should make that color transparent.
-     */
-    modelMatrix?: Object | undefined;
-    /**
-     * The `minFilter` and `magFilter` for luma.gl rendering (see https://luma.gl/docs/api-reference/core/resources/sampler#texture-magnification-filter) - default is 'nearest'
-     */
-    interpolation?: ("nearest" | "linear") | undefined;
+  /**
+   * List of [begin, end] values to control each channel's ramp function.
+   */
+  contrastLimits: Array<Array<number>>;
+  /**
+   * List of boolean values for each channel for whether or not it is visible.
+   */
+  channelsVisible: Array<boolean>;
+  /**
+   * Dtype for the layer.
+   */
+  dtype: string;
+  /**
+   * Override for the possible max/min values (i.e something different than 65535 for uint16/'<u2').
+   */
+  domain?: Array<number> | undefined;
+  /**
+   * Unique identifier for this layer.
+   */
+  id?: string | undefined;
+  /**
+   * Hook function from deck.gl to handle hover objects.
+   */
+  onHover?: Function | undefined;
+  /**
+   * Hook function from deck.gl to handle clicked-on objects.
+   */
+  onClick?: Function | undefined;
+  /**
+   * Math.gl Matrix4 object containing an affine transformation to be applied to the image.
+   * Thus setting this to a truthy value (with a colormap set) indicates that the shader should make that color transparent.
+   */
+  modelMatrix?: Object | undefined;
+  /**
+   * The `minFilter` and `magFilter` for luma.gl rendering (see https://luma.gl/docs/api-reference/core/resources/sampler#texture-magnification-filter) - default is 'nearest'
+   */
+  interpolation?: ('nearest' | 'linear') | undefined;
 };
 /**
  * @typedef LayerProps
@@ -426,54 +426,54 @@ type LayerProps$2 = {
  * @ignore
  */
 declare const XRLayer: {
-    new (...props: _vivjs_types.Viv<LayerProps$2>[]): any;
+  new (...props: _vivjs_types.Viv<LayerProps$2>[]): any;
 };
 
 type LayerProps$1 = {
-    /**
-     * List of [begin, end] values to control each channel's ramp function.
-     */
-    contrastLimits: Array<Array<number>>;
-    /**
-     * List of boolean values for each channel for whether or not it is visible.
-     */
-    channelsVisible: Array<boolean>;
-    /**
-     * Dtype for the layer.
-     */
-    dtype: string;
-    /**
-     * Override for the possible max/min values (i.e something different than 65535 for uint16/'<u2').
-     */
-    domain?: Array<Array<number>> | undefined;
-    /**
-     * A column major affine transformation to be applied to the volume.
-     */
-    modelMatrix?: Object | undefined;
-    /**
-     * 0-width (physical coordinates) interval on which to slice the volume.
-     */
-    xSlice?: Array<number> | undefined;
-    /**
-     * 0-height (physical coordinates) interval on which to slice the volume.
-     */
-    ySlice?: Array<number> | undefined;
-    /**
-     * 0-depth (physical coordinates) interval on which to slice the volume.
-     */
-    zSlice?: Array<number> | undefined;
-    /**
-     * List of math.gl [Plane](https://math.gl/modules/culling/docs/api-reference/plane) objects.
-     */
-    clippingPlanes?: Array<Object> | undefined;
-    /**
-     * Matrix for scaling the volume based on the (downsampled) resolution being displayed.
-     */
-    resolutionMatrix?: Object | undefined;
-    /**
-     * [deck.gl extensions](https://deck.gl/docs/developer-guide/custom-layers/layer-extensions) to add to the layers - default is AdditiveBlendExtension from ColorPalette3DExtensions.
-     */
-    extensions?: any[] | undefined;
+  /**
+   * List of [begin, end] values to control each channel's ramp function.
+   */
+  contrastLimits: Array<Array<number>>;
+  /**
+   * List of boolean values for each channel for whether or not it is visible.
+   */
+  channelsVisible: Array<boolean>;
+  /**
+   * Dtype for the layer.
+   */
+  dtype: string;
+  /**
+   * Override for the possible max/min values (i.e something different than 65535 for uint16/'<u2').
+   */
+  domain?: Array<Array<number>> | undefined;
+  /**
+   * A column major affine transformation to be applied to the volume.
+   */
+  modelMatrix?: Object | undefined;
+  /**
+   * 0-width (physical coordinates) interval on which to slice the volume.
+   */
+  xSlice?: Array<number> | undefined;
+  /**
+   * 0-height (physical coordinates) interval on which to slice the volume.
+   */
+  ySlice?: Array<number> | undefined;
+  /**
+   * 0-depth (physical coordinates) interval on which to slice the volume.
+   */
+  zSlice?: Array<number> | undefined;
+  /**
+   * List of math.gl [Plane](https://math.gl/modules/culling/docs/api-reference/plane) objects.
+   */
+  clippingPlanes?: Array<Object> | undefined;
+  /**
+   * Matrix for scaling the volume based on the (downsampled) resolution being displayed.
+   */
+  resolutionMatrix?: Object | undefined;
+  /**
+   * [deck.gl extensions](https://deck.gl/docs/developer-guide/custom-layers/layer-extensions) to add to the layers - default is AdditiveBlendExtension from ColorPalette3DExtensions.
+   */
+  extensions?: any[] | undefined;
 };
 /**
  * @typedef LayerProps
@@ -495,37 +495,37 @@ type LayerProps$1 = {
  * @ignore
  */
 declare const XR3DLayer: {
-    new <S extends string[]>(...props: _vivjs_types.Viv<LayerProps$1>[]): any;
+  new <S extends string[]>(...props: _vivjs_types.Viv<LayerProps$1>[]): any;
 };
 
 type LayerProps = {
-    /**
-     * Opacity of the layer.
-     */
-    opacity?: number | undefined;
-    /**
-     * Hook function from deck.gl to handle clicked-on objects.
-     */
-    onClick?: Function | undefined;
-    /**
-     * Math.gl Matrix4 object containing an affine transformation to be applied to the image.
-     */
-    modelMatrix?: Object | undefined;
-    /**
-     * One of WhiteIsZero BlackIsZero YCbCr or RGB (default)
-     */
-    photometricInterpretation?: number | undefined;
-    /**
-     * An RGB (0-255 range) color to be considered "transparent" if provided.
-     * In other words, any fragment shader output equal transparentColor (before applying opacity) will have opacity 0.
-     * This parameter only needs to be a truthy value when using colormaps because each colormap has its own transparent color that is calculated on the shader.
-     * Thus setting this to a truthy value (with a colormap set) indicates that the shader should make that color transparent.
-     */
-    transparentColor?: Array<number> | undefined;
-    /**
-     * Unique identifier for this layer.
-     */
-    id?: string | undefined;
+  /**
+   * Opacity of the layer.
+   */
+  opacity?: number | undefined;
+  /**
+   * Hook function from deck.gl to handle clicked-on objects.
+   */
+  onClick?: Function | undefined;
+  /**
+   * Math.gl Matrix4 object containing an affine transformation to be applied to the image.
+   */
+  modelMatrix?: Object | undefined;
+  /**
+   * One of WhiteIsZero BlackIsZero YCbCr or RGB (default)
+   */
+  photometricInterpretation?: number | undefined;
+  /**
+   * An RGB (0-255 range) color to be considered "transparent" if provided.
+   * In other words, any fragment shader output equal transparentColor (before applying opacity) will have opacity 0.
+   * This parameter only needs to be a truthy value when using colormaps because each colormap has its own transparent color that is calculated on the shader.
+   * Thus setting this to a truthy value (with a colormap set) indicates that the shader should make that color transparent.
+   */
+  transparentColor?: Array<number> | undefined;
+  /**
+   * Unique identifier for this layer.
+   */
+  id?: string | undefined;
 };
 /**
  * @typedef LayerProps
@@ -545,7 +545,7 @@ type LayerProps = {
  * @ignore
  */
 declare const BitmapLayer: {
-    new (...props: _vivjs_types.Viv<LayerProps>[]): any;
+  new (...props: _vivjs_types.Viv<LayerProps>[]): any;
 };
 
 /**
@@ -554,7 +554,11 @@ declare const BitmapLayer: {
  * @param {T} defaultValue
  * @param {number} padWidth
  */
-declare function padWithDefault<T>(arr: T[], defaultValue: T, padWidth: number): T[];
+declare function padWithDefault<T>(
+  arr: T[],
+  defaultValue: T,
+  padWidth: number
+): T[];
 /**
  * Get physical size scaling Matrix4
  * @param {Object} loader PixelSource
@@ -567,4 +571,16 @@ declare function getPhysicalSizeScalingMatrix(loader: Object): Matrix4;
  */
 declare function makeBoundingBox(viewState: Object): View;
 
-export { BitmapLayer, ImageLayer, MultiscaleImageLayer, OverviewLayer, ScaleBarLayer, VolumeLayer, XR3DLayer, XRLayer, getPhysicalSizeScalingMatrix, makeBoundingBox, padWithDefault };
+export {
+  BitmapLayer,
+  ImageLayer,
+  MultiscaleImageLayer,
+  OverviewLayer,
+  ScaleBarLayer,
+  VolumeLayer,
+  XR3DLayer,
+  XRLayer,
+  getPhysicalSizeScalingMatrix,
+  makeBoundingBox,
+  padWithDefault
+};

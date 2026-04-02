@@ -1,20 +1,35 @@
-import { BaseDecoder, fromBlob, fromFile, fromUrl, GeoTIFFImage, addDecoder } from 'geotiff';
+import {
+  BaseDecoder,
+  GeoTIFFImage,
+  addDecoder,
+  fromBlob,
+  fromFile,
+  fromUrl
+} from 'geotiff';
 import { decompress } from 'lzw-tiff-decoder';
 import quickselect from 'quickselect';
-import * as z from 'zod';
 import * as zarr from 'zarrita';
 import { FetchStore } from 'zarrita';
+import * as z from 'zod';
 
 var __defProp$3 = Object.defineProperty;
-var __defNormalProp$3 = (obj, key, value) => key in obj ? __defProp$3(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __defNormalProp$3 = (obj, key, value) =>
+  key in obj
+    ? __defProp$3(obj, key, {
+        enumerable: true,
+        configurable: true,
+        writable: true,
+        value
+      })
+    : (obj[key] = value);
 var __publicField$3 = (obj, key, value) => {
-  __defNormalProp$3(obj, typeof key !== "symbol" ? key + "" : key, value);
+  __defNormalProp$3(obj, typeof key !== 'symbol' ? key + '' : key, value);
   return value;
 };
 class LZWDecoder extends BaseDecoder {
   constructor(fileDirectory) {
     super();
-    __publicField$3(this, "maxUncompressedSize");
+    __publicField$3(this, 'maxUncompressedSize');
     const width = fileDirectory.TileWidth || fileDirectory.ImageWidth;
     const height = fileDirectory.TileLength || fileDirectory.ImageLength;
     const nbytes = fileDirectory.BitsPerSample[0] / 8;
@@ -28,14 +43,14 @@ class LZWDecoder extends BaseDecoder {
 }
 
 const DTYPE_LOOKUP$1 = {
-  uint8: "Uint8",
-  uint16: "Uint16",
-  uint32: "Uint32",
-  float: "Float32",
-  double: "Float64",
-  int8: "Int8",
-  int16: "Int16",
-  int32: "Int32"
+  uint8: 'Uint8',
+  uint16: 'Uint16',
+  uint32: 'Uint32',
+  float: 'Float32',
+  double: 'Float64',
+  int8: 'Int8',
+  int16: 'Int16',
+  int32: 'Int32'
 };
 function getChannelStats(arr) {
   let len = arr.length;
@@ -67,7 +82,7 @@ function getChannelStats(arr) {
   const q1 = arr[firstQuartileLocation];
   quickselect(arr, thirdQuartileLocation, mid, arr.length - 1);
   const q3 = arr[thirdQuartileLocation];
-  const cutoffArr = arr.filter((i) => i > 0);
+  const cutoffArr = arr.filter(i => i > 0);
   const cutoffPercentile = 5e-4;
   const topCutoffLocation = Math.floor(
     cutoffArr.length * (1 - cutoffPercentile)
@@ -91,7 +106,7 @@ function getChannelStats(arr) {
 }
 function intToRgba(int) {
   if (!Number.isInteger(int)) {
-    throw Error("Not an integer.");
+    throw Error('Not an integer.');
   }
   const buffer = new ArrayBuffer(4);
   const view = new DataView(buffer);
@@ -104,7 +119,7 @@ function isInterleaved(shape) {
   return lastDimSize === 3 || lastDimSize === 4;
 }
 function getLabels(dimOrder) {
-  return dimOrder.toLowerCase().split("").reverse();
+  return dimOrder.toLowerCase().split('').reverse();
 }
 function getImageSize(source) {
   const interleaved = isInterleaved(source.shape);
@@ -114,7 +129,7 @@ function getImageSize(source) {
 function prevPowerOf2(x) {
   return 2 ** Math.floor(Math.log2(x));
 }
-const SIGNAL_ABORTED = "__vivSignalAborted";
+const SIGNAL_ABORTED = '__vivSignalAborted';
 function isElement(node) {
   return node.nodeType === 1;
 }
@@ -123,10 +138,13 @@ function isText(node) {
 }
 function xmlToJson(xmlNode, options) {
   if (isText(xmlNode)) {
-    return xmlNode.nodeValue?.trim() ?? "";
+    return xmlNode.nodeValue?.trim() ?? '';
   }
-  if (xmlNode.childNodes.length === 0 && (!xmlNode.attributes || xmlNode.attributes.length === 0)) {
-    return "";
+  if (
+    xmlNode.childNodes.length === 0 &&
+    (!xmlNode.attributes || xmlNode.attributes.length === 0)
+  ) {
+    return '';
   }
   const xmlObj = {};
   if (xmlNode.attributes && xmlNode.attributes.length > 0) {
@@ -143,8 +161,8 @@ function xmlToJson(xmlNode, options) {
       continue;
     }
     const childXmlObj = xmlToJson(childNode, options);
-    if (childXmlObj !== void 0 && childXmlObj !== "") {
-      if (childNode.nodeName === "#text" && xmlNode.childNodes.length === 1) {
+    if (childXmlObj !== void 0 && childXmlObj !== '') {
+      if (childNode.nodeName === '#text' && xmlNode.childNodes.length === 1) {
         return childXmlObj;
       }
       if (xmlObj[childNode.nodeName]) {
@@ -163,23 +181,23 @@ function parseXML(xmlString) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(
     // biome-ignore lint/suspicious/noControlCharactersInRegex: Necessary for parsing XML
-    xmlString.replace(/\u0000$/, ""),
-    "application/xml"
+    xmlString.replace(/\u0000$/, ''),
+    'application/xml'
   );
-  return xmlToJson(doc.documentElement, { attrtibutesKey: "attr" });
+  return xmlToJson(doc.documentElement, { attrtibutesKey: 'attr' });
 }
 function assert(condition, message) {
   if (!condition) {
-    throw new Error(`Assert failed${message ? `: ${message}` : ""}`);
+    throw new Error(`Assert failed${message ? `: ${message}` : ''}`);
   }
 }
 
-const VIV_PROXY_KEY = "__viv";
+const VIV_PROXY_KEY = '__viv';
 const OFFSETS_PROXY_KEY = `${VIV_PROXY_KEY}-offsets`;
 function createOffsetsProxy(tiff, offsets) {
   const get = (target, key) => {
-    if (key === "getImage") {
-      return (index) => {
+    if (key === 'getImage') {
+      return index => {
         if (!(index in target.ifdRequests) && index in offsets) {
           const offset = offsets[index];
           target.ifdRequests[index] = target.parseFileDirectoryAt(offset);
@@ -195,18 +213,181 @@ function createOffsetsProxy(tiff, offsets) {
   return new Proxy(tiff, { get });
 }
 
+const SCANNER_DEFAULTS = {
+  initialWindowSize: 64 * 1024,
+  maxWindowSize: 1024 * 1024,
+  mode: 'adaptive'
+};
+const LITTLE_ENDIAN = 18761;
+const BIG_ENDIAN = 19789;
+const CLASSIC_MAGIC = 42;
+const BIGTIFF_MAGIC = 43;
+function parseTiffHeader(buf) {
+  const view = new DataView(buf);
+  const bom = view.getUint16(0, false);
+  let littleEndian;
+  if (bom === LITTLE_ENDIAN) {
+    littleEndian = true;
+  } else if (bom === BIG_ENDIAN) {
+    littleEndian = false;
+  } else {
+    throw new Error(`Invalid TIFF byte-order mark: 0x${bom.toString(16)}`);
+  }
+  const magic = view.getUint16(2, littleEndian);
+  if (magic === CLASSIC_MAGIC) {
+    const firstIfdOffset = view.getUint32(4, littleEndian);
+    return { littleEndian, bigTiff: false, firstIfdOffset };
+  }
+  if (magic === BIGTIFF_MAGIC) {
+    const firstIfdOffset = readUint64(view, 8, littleEndian);
+    return { littleEndian, bigTiff: true, firstIfdOffset };
+  }
+  throw new Error(`Invalid TIFF magic number: ${magic}`);
+}
+function readUint64(view, offset, littleEndian) {
+  const lo = view.getUint32(offset, littleEndian);
+  const hi = view.getUint32(offset + 4, littleEndian);
+  const value = littleEndian ? hi * 4294967296 + lo : lo * 4294967296 + hi;
+  if (!Number.isSafeInteger(value)) {
+    throw new Error(`IFD offset exceeds safe integer range: ${value}`);
+  }
+  return value;
+}
+function parseIfd(buf, localOffset, format) {
+  const view = new DataView(buf);
+  const { littleEndian, bigTiff } = format;
+  if (bigTiff) {
+    if (localOffset + 8 > buf.byteLength) return null;
+    const entryCount2 = readUint64(view, localOffset, littleEndian);
+    const ifdSize2 = 8 + entryCount2 * 20 + 8;
+    if (localOffset + ifdSize2 > buf.byteLength) return null;
+    const nextIfdOffset2 = readUint64(
+      view,
+      localOffset + 8 + entryCount2 * 20,
+      littleEndian
+    );
+    return { nextIfdOffset: nextIfdOffset2, bytesConsumed: ifdSize2 };
+  }
+  if (localOffset + 2 > buf.byteLength) return null;
+  const entryCount = view.getUint16(localOffset, littleEndian);
+  const ifdSize = 2 + entryCount * 12 + 4;
+  if (localOffset + ifdSize > buf.byteLength) return null;
+  const nextIfdOffset = view.getUint32(
+    localOffset + 2 + entryCount * 12,
+    littleEndian
+  );
+  return { nextIfdOffset, bytesConsumed: ifdSize };
+}
+async function fetchRange(url, start, end, headers) {
+  const resp = await fetch(url, {
+    headers: {
+      ...normalizeHeaders(headers),
+      Range: `bytes=${start}-${end - 1}`
+    }
+  });
+  if (!resp.ok && resp.status !== 206) {
+    throw new Error(`HTTP ${resp.status} fetching range ${start}-${end}`);
+  }
+  return resp.arrayBuffer();
+}
+function normalizeHeaders(headers) {
+  if (!headers) return void 0;
+  if (headers instanceof Headers) {
+    const obj = {};
+    headers.forEach((v, k) => {
+      obj[k] = v;
+    });
+    return obj;
+  }
+  return headers;
+}
+async function fetchOffsetsJson(url, headers) {
+  try {
+    const offsetsUrl = `${url}.offsets.json`;
+    const resp = await fetch(offsetsUrl, {
+      headers: normalizeHeaders(headers)
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (Array.isArray(data) && data.every(n => typeof n === 'number')) {
+      return data;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+async function scanIfdOffsets(url, headers, options) {
+  const opts = { ...SCANNER_DEFAULTS, ...options };
+  let windowSize = opts.initialWindowSize;
+  const headerBuf = await fetchRange(url, 0, 16, headers);
+  const format = parseTiffHeader(headerBuf);
+  const offsets = [];
+  let currentOffset = format.firstIfdOffset;
+  if (currentOffset === 0) return offsets;
+  let bufStart = -1;
+  let buf = new ArrayBuffer(0);
+  while (currentOffset !== 0) {
+    offsets.push(currentOffset);
+    const localOffset = currentOffset - bufStart;
+    if (bufStart < 0 || localOffset < 0 || localOffset >= buf.byteLength) {
+      buf = await fetchRange(
+        url,
+        currentOffset,
+        currentOffset + windowSize,
+        headers
+      );
+      bufStart = currentOffset;
+      if (opts.mode === 'adaptive') {
+        windowSize = Math.min(windowSize * 2, opts.maxWindowSize);
+      }
+    }
+    const result = parseIfd(buf, currentOffset - bufStart, format);
+    if (result === null) {
+      const largerSize = Math.min(windowSize * 2, opts.maxWindowSize);
+      buf = await fetchRange(
+        url,
+        currentOffset,
+        currentOffset + largerSize,
+        headers
+      );
+      bufStart = currentOffset;
+      const retry = parseIfd(buf, 0, format);
+      if (retry === null) {
+        throw new Error(
+          `IFD at offset ${currentOffset} is too large to parse within maxWindowSize`
+        );
+      }
+      currentOffset = retry.nextIfdOffset;
+    } else {
+      currentOffset = result.nextIfdOffset;
+    }
+  }
+  return offsets;
+}
+async function resolveRemoteOffsets(url, headers, scannerOptions) {
+  const jsonOffsets = await fetchOffsetsJson(url, headers);
+  if (jsonOffsets) return jsonOffsets;
+  return scanIfdOffsets(url, headers, scannerOptions);
+}
+
 function extractPhysicalSizesfromPixels(d) {
-  if (!d["PhysicalSizeX"] || !d["PhysicalSizeY"] || !d["PhysicalSizeXUnit"] || !d["PhysicalSizeYUnit"]) {
+  if (
+    !d['PhysicalSizeX'] ||
+    !d['PhysicalSizeY'] ||
+    !d['PhysicalSizeXUnit'] ||
+    !d['PhysicalSizeYUnit']
+  ) {
     return void 0;
   }
   const physicalSizes = {
-    x: { size: d["PhysicalSizeX"], unit: d["PhysicalSizeXUnit"] },
-    y: { size: d["PhysicalSizeY"], unit: d["PhysicalSizeYUnit"] }
+    x: { size: d['PhysicalSizeX'], unit: d['PhysicalSizeXUnit'] },
+    y: { size: d['PhysicalSizeY'], unit: d['PhysicalSizeYUnit'] }
   };
-  if (d["PhysicalSizeZ"] && d["PhysicalSizeZUnit"]) {
+  if (d['PhysicalSizeZ'] && d['PhysicalSizeZUnit']) {
     physicalSizes.z = {
-      size: d["PhysicalSizeZ"],
-      unit: d["PhysicalSizeZUnit"]
+      size: d['PhysicalSizeZ'],
+      unit: d['PhysicalSizeZUnit']
     };
   }
   return physicalSizes;
@@ -216,25 +397,25 @@ function parsePixelDataType(dtype) {
   return DTYPE_LOOKUP$1[dtype];
 }
 function extractAxesFromPixels(d) {
-  const labels = getLabels(d["DimensionOrder"]);
+  const labels = getLabels(d['DimensionOrder']);
   const shape = Array(labels.length).fill(0);
-  shape[labels.indexOf("t")] = d["SizeT"];
-  shape[labels.indexOf("c")] = d["SizeC"];
-  shape[labels.indexOf("z")] = d["SizeZ"];
-  shape[labels.indexOf("y")] = d["SizeY"];
-  shape[labels.indexOf("x")] = d["SizeX"];
-  if (d["Interleaved"]) {
-    labels.push("_c");
+  shape[labels.indexOf('t')] = d['SizeT'];
+  shape[labels.indexOf('c')] = d['SizeC'];
+  shape[labels.indexOf('z')] = d['SizeZ'];
+  shape[labels.indexOf('y')] = d['SizeY'];
+  shape[labels.indexOf('x')] = d['SizeX'];
+  if (d['Interleaved']) {
+    labels.push('_c');
     shape.push(3);
   }
   return { labels, shape };
 }
 function getShapeForBinaryDownsampleLevel(options) {
   const { axes, level } = options;
-  const xIndex = axes.labels.indexOf("x");
-  assert(xIndex !== -1, "x dimension not found");
-  const yIndex = axes.labels.indexOf("y");
-  assert(yIndex !== -1, "y dimension not found");
+  const xIndex = axes.labels.indexOf('x');
+  assert(xIndex !== -1, 'x dimension not found');
+  const yIndex = axes.labels.indexOf('y');
+  assert(yIndex !== -1, 'y dimension not found');
   const resolutionShape = axes.shape.slice();
   resolutionShape[xIndex] = axes.shape[xIndex] >> level;
   resolutionShape[yIndex] = axes.shape[yIndex] >> level;
@@ -284,7 +465,7 @@ function guessImageDataType(image) {
       }
       break;
   }
-  throw Error("Unsupported data format/bitsPerSample");
+  throw Error('Unsupported data format/bitsPerSample');
 }
 function getMultiTiffShapeMap(tiffs) {
   let [c, z, t] = [0, 0, 0];
@@ -308,8 +489,11 @@ function getChannelSamplesPerPixel(tiffs, numChannels) {
     const curChannel = tiff.selection.c;
     const curSamplesPerPixel = tiff.tiff.getSamplesPerPixel();
     const existingSamplesPerPixel = channelSamplesPerPixel[curChannel];
-    if (existingSamplesPerPixel && existingSamplesPerPixel !== curSamplesPerPixel) {
-      throw Error("Channel samples per pixel mismatch");
+    if (
+      existingSamplesPerPixel &&
+      existingSamplesPerPixel !== curSamplesPerPixel
+    ) {
+      throw Error('Channel samples per pixel mismatch');
     }
     channelSamplesPerPixel[curChannel] = curSamplesPerPixel;
   }
@@ -326,7 +510,15 @@ function getMultiTiffMeta(dimensionOrder, tiffs) {
   const dtype = guessImageDataType(firstTiff);
   return { shape, labels, dtype };
 }
-function getMultiTiffPixelMedatata(imageNumber, dimensionOrder, shapeMap, dType, tiffs, channelNames, channelSamplesPerPixel) {
+function getMultiTiffPixelMedatata(
+  imageNumber,
+  dimensionOrder,
+  shapeMap,
+  dType,
+  tiffs,
+  channelNames,
+  channelSamplesPerPixel
+) {
   const channelMetadata = [];
   for (let i = 0; i < shapeMap.c; i += 1) {
     channelMetadata.push({
@@ -348,11 +540,17 @@ function getMultiTiffPixelMedatata(imageNumber, dimensionOrder, shapeMap, dType,
     Channels: channelMetadata
   };
 }
-function getMultiTiffMetadata(imageName, tiffImages, channelNames, dimensionOrder, dType) {
+function getMultiTiffMetadata(
+  imageName,
+  tiffImages,
+  channelNames,
+  dimensionOrder,
+  dType
+) {
   const imageNumber = 0;
   const id = `Image:${imageNumber}`;
-  const date = "";
-  const description = "";
+  const date = '';
+  const description = '';
   const shapeMap = getMultiTiffShapeMap(tiffImages);
   const channelSamplesPerPixel = getChannelSamplesPerPixel(
     tiffImages,
@@ -360,7 +558,7 @@ function getMultiTiffMetadata(imageName, tiffImages, channelNames, dimensionOrde
   );
   if (channelNames.length !== shapeMap.c)
     throw Error(
-      "Wrong number of channel names for number of channels provided"
+      'Wrong number of channel names for number of channels provided'
     );
   const pixels = getMultiTiffPixelMedatata(
     imageNumber,
@@ -373,10 +571,10 @@ function getMultiTiffMetadata(imageName, tiffImages, channelNames, dimensionOrde
   );
   const format = () => {
     return {
-      "Acquisition Date": date,
-      "Dimensions (XY)": `${shapeMap.x} x ${shapeMap.y}`,
+      'Acquisition Date': date,
+      'Dimensions (XY)': `${shapeMap.x} x ${shapeMap.y}`,
       PixelsType: dType,
-      "Z-sections/Timepoints": `${shapeMap.z} x ${shapeMap.t}`,
+      'Z-sections/Timepoints': `${shapeMap.z} x ${shapeMap.t}`,
       Channels: shapeMap.c
     };
   };
@@ -391,10 +589,10 @@ function getMultiTiffMetadata(imageName, tiffImages, channelNames, dimensionOrde
 }
 function parseFilename(path) {
   const parsedFilename = {};
-  const filename = path.split("/").pop();
-  const splitFilename = filename?.split(".");
+  const filename = path.split('/').pop();
+  const splitFilename = filename?.split('.');
   if (splitFilename) {
-    parsedFilename.name = splitFilename.slice(0, -1).join(".");
+    parsedFilename.name = splitFilename.slice(0, -1).join('.');
     [, parsedFilename.extension] = splitFilename;
   }
   return parsedFilename;
@@ -403,18 +601,35 @@ function createGeoTiffObject(source, { headers }) {
   if (source instanceof Blob) {
     return fromBlob(source);
   }
-  const url = typeof source === "string" ? new URL(source) : source;
-  if (url.protocol === "file:") {
+  const url = typeof source === 'string' ? new URL(source) : source;
+  if (url.protocol === 'file:') {
     return fromFile(url.pathname);
   }
   return fromUrl(url.href, { headers, cacheSize: Number.POSITIVE_INFINITY });
 }
 async function createGeoTiff(source, options = {}) {
   const tiff = await createGeoTiffObject(source, options);
-  return options.offsets ? createOffsetsProxy(tiff, options.offsets) : tiff;
+  if (options.offsets) {
+    return createOffsetsProxy(tiff, options.offsets);
+  }
+  if (!(source instanceof Blob)) {
+    const url = typeof source === 'string' ? new URL(source) : source;
+    if (url.protocol !== 'file:') {
+      try {
+        const offsets = await resolveRemoteOffsets(url.href, options.headers);
+        if (offsets.length > 0) {
+          return createOffsetsProxy(tiff, offsets);
+        }
+      } catch {}
+    }
+  }
+  return tiff;
 }
 
-function createOmeImageIndexerFromResolver(resolveBaseResolutionImageLocation, image) {
+function createOmeImageIndexerFromResolver(
+  resolveBaseResolutionImageLocation,
+  image
+) {
   const ifdCache = [];
   return async (sel, pyramidLevel) => {
     const { tiff, ifdIndex } = await resolveBaseResolutionImageLocation(sel);
@@ -426,7 +641,8 @@ function createOmeImageIndexerFromResolver(resolveBaseResolutionImageLocation, i
     if (baseImage.fileDirectory.SubIFDs) {
       index = baseImage.fileDirectory.SubIFDs[pyramidLevel - 1];
     } else {
-      const resolutionOffset = pyramidLevel * image.size.z * image.size.t * image.size.c;
+      const resolutionOffset =
+        pyramidLevel * image.size.z * image.size.t * image.size.c;
       index = ifdIndex + resolutionOffset;
     }
     if (!ifdCache[index]) {
@@ -450,19 +666,26 @@ function getMultiTiffIndexer(tiffs) {
   const lookup = new Map(
     tiffs.map(({ selection, tiff }) => [selectionToKey(selection), tiff])
   );
-  return async (sel) => {
+  return async sel => {
     const key = selectionToKey(sel);
     const img = lookup.get(key);
-    if (!img)
-      throw new Error(`No image available for selection ${key}`);
+    if (!img) throw new Error(`No image available for selection ${key}`);
     return img;
   };
 }
 
 var __defProp$2 = Object.defineProperty;
-var __defNormalProp$2 = (obj, key, value) => key in obj ? __defProp$2(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __defNormalProp$2 = (obj, key, value) =>
+  key in obj
+    ? __defProp$2(obj, key, {
+        enumerable: true,
+        configurable: true,
+        writable: true,
+        value
+      })
+    : (obj[key] = value);
 var __publicField$2 = (obj, key, value) => {
-  __defNormalProp$2(obj, typeof key !== "symbol" ? key + "" : key, value);
+  __defNormalProp$2(obj, typeof key !== 'symbol' ? key + '' : key, value);
   return value;
 };
 class TiffPixelSource {
@@ -473,7 +696,7 @@ class TiffPixelSource {
     this.labels = labels;
     this.meta = meta;
     this.pool = pool;
-    __publicField$2(this, "_indexer");
+    __publicField$2(this, '_indexer');
     this._indexer = indexer;
   }
   async getRaster({ selection, signal }) {
@@ -509,7 +732,8 @@ class TiffPixelSource {
    * Computes tile size given x, y coord.
    */
   _getTileExtent(x, y) {
-    const { height: zoomLevelHeight, width: zoomLevelWidth } = getImageSize(this);
+    const { height: zoomLevelHeight, width: zoomLevelWidth } =
+      getImageSize(this);
     let height = this.tileSize;
     let width = this.tileSize;
     const maxXTileCoord = Math.floor(zoomLevelWidth / this.tileSize);
@@ -532,14 +756,18 @@ function assertSameResolution(images) {
   const height = images[0].tiff.getHeight();
   for (const image of images) {
     if (image.tiff.getWidth() !== width || image.tiff.getHeight() !== height) {
-      throw new Error("All images must have the same width and height");
+      throw new Error('All images must have the same width and height');
     }
   }
 }
 async function assertCompleteStack(images, indexer) {
-  for (let t = 0; t <= Math.max(...images.map((i) => i.selection.t)); t += 1) {
-    for (let c = 0; c <= Math.max(...images.map((i) => i.selection.c)); c += 1) {
-      for (let z = 0; z <= Math.max(...images.map((i) => i.selection.z)); z += 1) {
+  for (let t = 0; t <= Math.max(...images.map(i => i.selection.t)); t += 1) {
+    for (let c = 0; c <= Math.max(...images.map(i => i.selection.c)); c += 1) {
+      for (
+        let z = 0;
+        z <= Math.max(...images.map(i => i.selection.z));
+        z += 1
+      ) {
         await indexer({ t, c, z });
       }
     }
@@ -548,8 +776,9 @@ async function assertCompleteStack(images, indexer) {
 async function load$2(imageName, images, channelNames, pool) {
   assertSameResolution(images);
   const firstImage = images[0].tiff;
-  const { PhotometricInterpretation: photometricInterpretation } = firstImage.fileDirectory;
-  const dimensionOrder = "XYZCT";
+  const { PhotometricInterpretation: photometricInterpretation } =
+    firstImage.fileDirectory;
+  const dimensionOrder = 'XYZCT';
   const tileSize = getTiffTileSize(firstImage);
   const meta = { photometricInterpretation };
   const indexer = getMultiTiffIndexer(images);
@@ -577,175 +806,208 @@ async function load$2(imageName, images, channelNames, pool) {
   };
 }
 
-function flattenAttributes({
-  attr,
-  ...rest
-}) {
+function flattenAttributes({ attr, ...rest }) {
   return { ...attr, ...rest };
 }
 function ensureArray(x) {
   return Array.isArray(x) ? x : [x];
 }
 const DimensionOrderSchema = z.enum([
-  "XYZCT",
-  "XYZTC",
-  "XYCTZ",
-  "XYCZT",
-  "XYTCZ",
-  "XYTZC"
+  'XYZCT',
+  'XYZTC',
+  'XYCTZ',
+  'XYCZT',
+  'XYTCZ',
+  'XYTZC'
 ]);
 const PixelTypeSchema = z.enum([
-  "int8",
-  "int16",
-  "int32",
-  "uint8",
-  "uint16",
-  "uint32",
-  "float",
-  "bit",
-  "double",
-  "complex",
-  "double-complex"
+  'int8',
+  'int16',
+  'int32',
+  'uint8',
+  'uint16',
+  'uint32',
+  'float',
+  'bit',
+  'double',
+  'complex',
+  'double-complex'
 ]);
 const PhysicalUnitSchema = z.enum([
-  "Ym",
-  "Zm",
-  "Em",
-  "Pm",
-  "Tm",
-  "Gm",
-  "Mm",
-  "km",
-  "hm",
-  "dam",
-  "m",
-  "dm",
-  "cm",
-  "mm",
-  "\xB5m",
-  "nm",
-  "pm",
-  "fm",
-  "am",
-  "zm",
-  "ym",
-  "\xC5",
-  "thou",
-  "li",
-  "in",
-  "ft",
-  "yd",
-  "mi",
-  "ua",
-  "ly",
-  "pc",
-  "pt",
-  "pixel",
-  "reference frame"
+  'Ym',
+  'Zm',
+  'Em',
+  'Pm',
+  'Tm',
+  'Gm',
+  'Mm',
+  'km',
+  'hm',
+  'dam',
+  'm',
+  'dm',
+  'cm',
+  'mm',
+  '\xB5m',
+  'nm',
+  'pm',
+  'fm',
+  'am',
+  'zm',
+  'ym',
+  '\xC5',
+  'thou',
+  'li',
+  'in',
+  'ft',
+  'yd',
+  'mi',
+  'ua',
+  'ly',
+  'pc',
+  'pt',
+  'pixel',
+  'reference frame'
 ]);
 z.enum([
-  "Rectangle",
-  "Ellipse",
-  "Polygon",
-  "Polyline",
-  "Line",
-  "Point",
-  "Label"
+  'Rectangle',
+  'Ellipse',
+  'Polygon',
+  'Polyline',
+  'Line',
+  'Point',
+  'Label'
 ]);
-const TransformSchema = z.object({}).extend({
-  attr: z.object({
-    A00: z.coerce.number(),
-    A01: z.coerce.number(),
-    A02: z.coerce.number(),
-    A10: z.coerce.number(),
-    A11: z.coerce.number(),
-    A12: z.coerce.number()
-  })
-}).transform(flattenAttributes);
-function createShapeSchema(specificAttrs, shapeType) {
-  return z.object({
-    Transform: TransformSchema.optional()
-  }).extend({
+const TransformSchema = z
+  .object({})
+  .extend({
     attr: z.object({
-      // Common Shape attributes (inherited by all shapes)
-      ID: z.string(),
-      Label: z.string().optional(),
-      // OME-XML uses "Label" 
-      Name: z.string().optional(),
-      // Some implementations also use "Name"
-      // Visual styling attributes
-      FillColor: z.coerce.number().transform(intToRgba).optional(),
-      StrokeColor: z.coerce.number().transform(intToRgba).optional(),
-      StrokeWidth: z.coerce.number().optional(),
-      StrokeDashArray: z.string().optional(),
-      LineCap: z.enum(["Butt", "Round", "Square"]).optional(),
-      // Spatial/temporal context attributes
-      TheC: z.coerce.number().optional(),
-      TheT: z.coerce.number().optional(),
-      TheZ: z.coerce.number().optional(),
-      // Text and font attributes
-      Text: z.string().optional(),
-      FontFamily: z.string().optional(),
-      FontSize: z.coerce.number().optional(),
-      FontStyle: z.enum(["Normal", "Italic", "Bold", "BoldItalic"]).optional(),
-      // Interaction and state attributes
-      Locked: z.string().transform((v) => v.toLowerCase() === "true").optional(),
-      Visible: z.string().transform((v) => v.toLowerCase() === "true").optional(),
-      // Shape-specific attributes
-      ...specificAttrs
+      A00: z.coerce.number(),
+      A01: z.coerce.number(),
+      A02: z.coerce.number(),
+      A10: z.coerce.number(),
+      A11: z.coerce.number(),
+      A12: z.coerce.number()
     })
-  }).transform(flattenAttributes).transform((data) => ({ ...data, type: shapeType }));
+  })
+  .transform(flattenAttributes);
+function createShapeSchema(specificAttrs, shapeType) {
+  return z
+    .object({
+      Transform: TransformSchema.optional()
+    })
+    .extend({
+      attr: z.object({
+        // Common Shape attributes (inherited by all shapes)
+        ID: z.string(),
+        Label: z.string().optional(),
+        // OME-XML uses "Label"
+        Name: z.string().optional(),
+        // Some implementations also use "Name"
+        // Visual styling attributes
+        FillColor: z.coerce.number().transform(intToRgba).optional(),
+        StrokeColor: z.coerce.number().transform(intToRgba).optional(),
+        StrokeWidth: z.coerce.number().optional(),
+        StrokeDashArray: z.string().optional(),
+        LineCap: z.enum(['Butt', 'Round', 'Square']).optional(),
+        // Spatial/temporal context attributes
+        TheC: z.coerce.number().optional(),
+        TheT: z.coerce.number().optional(),
+        TheZ: z.coerce.number().optional(),
+        // Text and font attributes
+        Text: z.string().optional(),
+        FontFamily: z.string().optional(),
+        FontSize: z.coerce.number().optional(),
+        FontStyle: z
+          .enum(['Normal', 'Italic', 'Bold', 'BoldItalic'])
+          .optional(),
+        // Interaction and state attributes
+        Locked: z
+          .string()
+          .transform(v => v.toLowerCase() === 'true')
+          .optional(),
+        Visible: z
+          .string()
+          .transform(v => v.toLowerCase() === 'true')
+          .optional(),
+        // Shape-specific attributes
+        ...specificAttrs
+      })
+    })
+    .transform(flattenAttributes)
+    .transform(data => ({ ...data, type: shapeType }));
 }
-const RectangleSchema = createShapeSchema({
-  X: z.coerce.number(),
-  // Top-left X coordinate
-  Y: z.coerce.number(),
-  // Top-left Y coordinate
-  Width: z.coerce.number(),
-  // Rectangle width
-  Height: z.coerce.number()
-  // Rectangle height
-}, "rectangle");
-const EllipseSchema = createShapeSchema({
-  X: z.coerce.number(),
-  // Center X coordinate
-  Y: z.coerce.number(),
-  // Center Y coordinate
-  RadiusX: z.coerce.number(),
-  // Horizontal radius
-  RadiusY: z.coerce.number()
-  // Vertical radius
-}, "ellipse");
-const LineSchema = createShapeSchema({
-  X1: z.coerce.number(),
-  // Start point X coordinate
-  Y1: z.coerce.number(),
-  // Start point Y coordinate
-  X2: z.coerce.number(),
-  // End point X coordinate
-  Y2: z.coerce.number()
-  // End point Y coordinate
-}, "line");
-const PointSchema = createShapeSchema({
-  X: z.coerce.number(),
-  // Point X coordinate
-  Y: z.coerce.number()
-  // Point Y coordinate
-}, "point");
-const PolygonSchema = createShapeSchema({
-  Points: z.string()
-  // Format: "x1,y1 x2,y2 x3,y3 ..." (space-separated coordinate pairs)
-}, "polygon");
-const PolylineSchema = createShapeSchema({
-  Points: z.string()
-  // Format: "x1,y1 x2,y2 x3,y3 ..." (space-separated coordinate pairs)
-}, "polyline");
-const LabelSchema = createShapeSchema({
-  X: z.coerce.number(),
-  // Label X coordinate
-  Y: z.coerce.number()
-  // Label Y coordinate
-}, "label");
+const RectangleSchema = createShapeSchema(
+  {
+    X: z.coerce.number(),
+    // Top-left X coordinate
+    Y: z.coerce.number(),
+    // Top-left Y coordinate
+    Width: z.coerce.number(),
+    // Rectangle width
+    Height: z.coerce.number()
+    // Rectangle height
+  },
+  'rectangle'
+);
+const EllipseSchema = createShapeSchema(
+  {
+    X: z.coerce.number(),
+    // Center X coordinate
+    Y: z.coerce.number(),
+    // Center Y coordinate
+    RadiusX: z.coerce.number(),
+    // Horizontal radius
+    RadiusY: z.coerce.number()
+    // Vertical radius
+  },
+  'ellipse'
+);
+const LineSchema = createShapeSchema(
+  {
+    X1: z.coerce.number(),
+    // Start point X coordinate
+    Y1: z.coerce.number(),
+    // Start point Y coordinate
+    X2: z.coerce.number(),
+    // End point X coordinate
+    Y2: z.coerce.number()
+    // End point Y coordinate
+  },
+  'line'
+);
+const PointSchema = createShapeSchema(
+  {
+    X: z.coerce.number(),
+    // Point X coordinate
+    Y: z.coerce.number()
+    // Point Y coordinate
+  },
+  'point'
+);
+const PolygonSchema = createShapeSchema(
+  {
+    Points: z.string()
+    // Format: "x1,y1 x2,y2 x3,y3 ..." (space-separated coordinate pairs)
+  },
+  'polygon'
+);
+const PolylineSchema = createShapeSchema(
+  {
+    Points: z.string()
+    // Format: "x1,y1 x2,y2 x3,y3 ..." (space-separated coordinate pairs)
+  },
+  'polyline'
+);
+const LabelSchema = createShapeSchema(
+  {
+    X: z.coerce.number(),
+    // Label X coordinate
+    Y: z.coerce.number()
+    // Label Y coordinate
+  },
+  'label'
+);
 const UnionSchema = z.object({
   // Standard OME-XML element names
   Rectangle: z.preprocess(ensureArray, RectangleSchema.array()).optional(),
@@ -764,126 +1026,143 @@ const UnionSchema = z.object({
   polylines: z.preprocess(ensureArray, PolylineSchema.array()).optional(),
   labels: z.preprocess(ensureArray, LabelSchema.array()).optional()
 });
-const ROISchema = z.object({
-  Union: UnionSchema.optional()
-}).extend({
-  attr: z.object({
-    ID: z.string(),
-    Name: z.string().optional(),
-    Description: z.string().optional()
+const ROISchema = z
+  .object({
+    Union: UnionSchema.optional()
   })
-}).transform(flattenAttributes).transform((data) => {
-  const shapes = [];
-  if (data.Union) {
-    if (data.Union.Rectangle)
-      shapes.push(...data.Union.Rectangle);
-    if (data.Union.Ellipse)
-      shapes.push(...data.Union.Ellipse);
-    if (data.Union.Line)
-      shapes.push(...data.Union.Line);
-    if (data.Union.Point)
-      shapes.push(...data.Union.Point);
-    if (data.Union.Polygon)
-      shapes.push(...data.Union.Polygon);
-    if (data.Union.Polyline)
-      shapes.push(...data.Union.Polyline);
-    if (data.Union.Label)
-      shapes.push(...data.Union.Label);
-    if (data.Union.rectangles)
-      shapes.push(...data.Union.rectangles);
-    if (data.Union.ellipses)
-      shapes.push(...data.Union.ellipses);
-    if (data.Union.lines)
-      shapes.push(...data.Union.lines);
-    if (data.Union.points)
-      shapes.push(...data.Union.points);
-    if (data.Union.polygons)
-      shapes.push(...data.Union.polygons);
-    if (data.Union.polylines)
-      shapes.push(...data.Union.polylines);
-    if (data.Union.labels)
-      shapes.push(...data.Union.labels);
-  }
-  const { Union, ...rest } = data;
-  return { ...rest, shapes };
-});
-const ROIRefSchema = z.object({}).extend({
-  attr: z.object({
-    ID: z.string()
+  .extend({
+    attr: z.object({
+      ID: z.string(),
+      Name: z.string().optional(),
+      Description: z.string().optional()
+    })
   })
-}).transform(flattenAttributes);
-const ChannelSchema = z.object({}).extend({
-  attr: z.object({
-    ID: z.string(),
-    SamplesPerPixel: z.coerce.number().optional(),
-    Name: z.string().optional(),
-    Color: z.coerce.number().transform(intToRgba).optional()
+  .transform(flattenAttributes)
+  .transform(data => {
+    const shapes = [];
+    if (data.Union) {
+      if (data.Union.Rectangle) shapes.push(...data.Union.Rectangle);
+      if (data.Union.Ellipse) shapes.push(...data.Union.Ellipse);
+      if (data.Union.Line) shapes.push(...data.Union.Line);
+      if (data.Union.Point) shapes.push(...data.Union.Point);
+      if (data.Union.Polygon) shapes.push(...data.Union.Polygon);
+      if (data.Union.Polyline) shapes.push(...data.Union.Polyline);
+      if (data.Union.Label) shapes.push(...data.Union.Label);
+      if (data.Union.rectangles) shapes.push(...data.Union.rectangles);
+      if (data.Union.ellipses) shapes.push(...data.Union.ellipses);
+      if (data.Union.lines) shapes.push(...data.Union.lines);
+      if (data.Union.points) shapes.push(...data.Union.points);
+      if (data.Union.polygons) shapes.push(...data.Union.polygons);
+      if (data.Union.polylines) shapes.push(...data.Union.polylines);
+      if (data.Union.labels) shapes.push(...data.Union.labels);
+    }
+    const { Union, ...rest } = data;
+    return { ...rest, shapes };
+  });
+const ROIRefSchema = z
+  .object({})
+  .extend({
+    attr: z.object({
+      ID: z.string()
+    })
   })
-}).transform(flattenAttributes);
-const UuidSchema = z.object({}).extend({
-  attr: z.object({
-    FileName: z.string()
+  .transform(flattenAttributes);
+const ChannelSchema = z
+  .object({})
+  .extend({
+    attr: z.object({
+      ID: z.string(),
+      SamplesPerPixel: z.coerce.number().optional(),
+      Name: z.string().optional(),
+      Color: z.coerce.number().transform(intToRgba).optional()
+    })
   })
-}).transform(flattenAttributes);
-const TiffDataSchema = z.object({ UUID: UuidSchema.optional() }).extend({
-  attr: z.object({
-    IFD: z.coerce.number().default(0),
-    PlaneCount: z.coerce.number().default(1),
-    FirstT: z.coerce.number().optional(),
-    FirstC: z.coerce.number().optional(),
-    FirstZ: z.coerce.number().optional()
+  .transform(flattenAttributes);
+const UuidSchema = z
+  .object({})
+  .extend({
+    attr: z.object({
+      FileName: z.string()
+    })
   })
-}).transform(flattenAttributes);
-const PixelsSchema = z.object({
-  Channel: z.preprocess(ensureArray, ChannelSchema.array()),
-  TiffData: z.preprocess(ensureArray, TiffDataSchema.array()).optional()
-}).extend({
-  attr: z.object({
-    ID: z.string(),
-    DimensionOrder: DimensionOrderSchema,
-    Type: PixelTypeSchema,
-    SizeT: z.coerce.number(),
-    SizeC: z.coerce.number(),
-    SizeZ: z.coerce.number(),
-    SizeY: z.coerce.number(),
-    SizeX: z.coerce.number(),
-    PhysicalSizeX: z.coerce.number().optional(),
-    PhysicalSizeY: z.coerce.number().optional(),
-    PhysicalSizeZ: z.coerce.number().optional(),
-    SignificantBits: z.coerce.number().optional(),
-    PhysicalSizeXUnit: PhysicalUnitSchema.optional().default("\xB5m"),
-    PhysicalSizeYUnit: PhysicalUnitSchema.optional().default("\xB5m"),
-    PhysicalSizeZUnit: PhysicalUnitSchema.optional().default("\xB5m"),
-    BigEndian: z.string().transform((v) => v.toLowerCase() === "true").optional(),
-    Interleaved: z.string().transform((v) => v.toLowerCase() === "true").optional()
+  .transform(flattenAttributes);
+const TiffDataSchema = z
+  .object({ UUID: UuidSchema.optional() })
+  .extend({
+    attr: z.object({
+      IFD: z.coerce.number().default(0),
+      PlaneCount: z.coerce.number().default(1),
+      FirstT: z.coerce.number().optional(),
+      FirstC: z.coerce.number().optional(),
+      FirstZ: z.coerce.number().optional()
+    })
   })
-}).transform(flattenAttributes).transform(({ Channel, ...rest }) => ({ Channels: Channel, ...rest }));
-const ImageSchema = z.object({
-  AquisitionDate: z.string().optional().default(""),
-  Description: z.unknown().optional().default(""),
-  Pixels: PixelsSchema,
-  ROIRef: z.preprocess(ensureArray, ROIRefSchema.array()).optional()
-}).extend({
-  attr: z.object({
-    ID: z.string(),
-    Name: z.string().optional()
+  .transform(flattenAttributes);
+const PixelsSchema = z
+  .object({
+    Channel: z.preprocess(ensureArray, ChannelSchema.array()),
+    TiffData: z.preprocess(ensureArray, TiffDataSchema.array()).optional()
   })
-}).transform(flattenAttributes);
-const OmeSchema = z.object({
-  Image: z.preprocess(ensureArray, ImageSchema.array()).optional(),
-  ROI: z.preprocess(ensureArray, ROISchema.array()).optional(),
-  ROIRef: z.preprocess(ensureArray, ROIRefSchema.array()).optional()
-}).transform((raw) => {
-  const images = raw.Image ?? [];
-  const rootRefs = raw.ROIRef ?? [];
-  const imageRefs = images.flatMap((img) => img.ROIRef ?? []);
-  const ROIRefCombined = [...rootRefs, ...imageRefs];
-  return { ...raw, ROIRefCombined };
-});
+  .extend({
+    attr: z.object({
+      ID: z.string(),
+      DimensionOrder: DimensionOrderSchema,
+      Type: PixelTypeSchema,
+      SizeT: z.coerce.number(),
+      SizeC: z.coerce.number(),
+      SizeZ: z.coerce.number(),
+      SizeY: z.coerce.number(),
+      SizeX: z.coerce.number(),
+      PhysicalSizeX: z.coerce.number().optional(),
+      PhysicalSizeY: z.coerce.number().optional(),
+      PhysicalSizeZ: z.coerce.number().optional(),
+      SignificantBits: z.coerce.number().optional(),
+      PhysicalSizeXUnit: PhysicalUnitSchema.optional().default('\xB5m'),
+      PhysicalSizeYUnit: PhysicalUnitSchema.optional().default('\xB5m'),
+      PhysicalSizeZUnit: PhysicalUnitSchema.optional().default('\xB5m'),
+      BigEndian: z
+        .string()
+        .transform(v => v.toLowerCase() === 'true')
+        .optional(),
+      Interleaved: z
+        .string()
+        .transform(v => v.toLowerCase() === 'true')
+        .optional()
+    })
+  })
+  .transform(flattenAttributes)
+  .transform(({ Channel, ...rest }) => ({ Channels: Channel, ...rest }));
+const ImageSchema = z
+  .object({
+    AquisitionDate: z.string().optional().default(''),
+    Description: z.unknown().optional().default(''),
+    Pixels: PixelsSchema,
+    ROIRef: z.preprocess(ensureArray, ROIRefSchema.array()).optional()
+  })
+  .extend({
+    attr: z.object({
+      ID: z.string(),
+      Name: z.string().optional()
+    })
+  })
+  .transform(flattenAttributes);
+const OmeSchema = z
+  .object({
+    Image: z.preprocess(ensureArray, ImageSchema.array()).optional(),
+    ROI: z.preprocess(ensureArray, ROISchema.array()).optional(),
+    ROIRef: z.preprocess(ensureArray, ROIRefSchema.array()).optional()
+  })
+  .transform(raw => {
+    const images = raw.Image ?? [];
+    const rootRefs = raw.ROIRef ?? [];
+    const imageRefs = images.flatMap(img => img.ROIRef ?? []);
+    const ROIRefCombined = [...rootRefs, ...imageRefs];
+    return { ...raw, ROIRefCombined };
+  });
 function fromString(str) {
   const raw = parseXML(str);
   const omeXml = OmeSchema.parse(raw);
-  console.log("simon", omeXml);
+  console.log('simon', omeXml);
   return {
     images: omeXml.Image ?? [],
     rois: omeXml.ROI ?? [],
@@ -892,24 +1171,30 @@ function fromString(str) {
 }
 
 function isCompleteTiffDataItem(item) {
-  return "FirstC" in item && "FirstT" in item && "FirstZ" in item && "IFD" in item && "UUID" in item;
+  return (
+    'FirstC' in item &&
+    'FirstT' in item &&
+    'FirstZ' in item &&
+    'IFD' in item &&
+    'UUID' in item
+  );
 }
 function createMultifileImageDataLookup(tiffData) {
   const lookup = /* @__PURE__ */ new Map();
   function keyFor({ t, c, z }) {
     return `t${t}.c${c}.z${z}`;
   }
-  assert(tiffData, "No TiffData in OME-XML");
+  assert(tiffData, 'No TiffData in OME-XML');
   for (const imageData of tiffData) {
-    assert(isCompleteTiffDataItem(imageData), "Incomplete TiffData item");
+    assert(isCompleteTiffDataItem(imageData), 'Incomplete TiffData item');
     const key = keyFor({
-      t: imageData["FirstT"],
-      c: imageData["FirstC"],
-      z: imageData["FirstZ"]
+      t: imageData['FirstT'],
+      c: imageData['FirstC'],
+      z: imageData['FirstZ']
     });
     const imageDataPointer = {
-      ifd: imageData["IFD"],
-      filename: imageData["UUID"]["FileName"]
+      ifd: imageData['IFD'],
+      filename: imageData['UUID']['FileName']
     };
     lookup.set(key, imageDataPointer);
   }
@@ -924,7 +1209,7 @@ function createMultifileImageDataLookup(tiffData) {
 function createMultifileOmeTiffResolver(options) {
   const tiffs = /* @__PURE__ */ new Map();
   const lookup = createMultifileImageDataLookup(options.tiffData);
-  return async (selection) => {
+  return async selection => {
     const entry = lookup.getImageDataPointer(selection);
     if (!tiffs.has(entry.filename)) {
       const url = new URL(entry.filename, options.baseUrl);
@@ -938,7 +1223,7 @@ function createMultifileOmeTiffResolver(options) {
 }
 async function getPixelSourceOptionsForImage(metadata, config) {
   const resolveOmeSelection = createMultifileOmeTiffResolver({
-    tiffData: metadata["Pixels"]["TiffData"],
+    tiffData: metadata['Pixels']['TiffData'],
     baseUrl: config.baseUrl,
     headers: config.headers
   });
@@ -948,40 +1233,45 @@ async function getPixelSourceOptionsForImage(metadata, config) {
     resolveOmeSelection,
     {
       size: {
-        z: metadata["Pixels"]["SizeZ"],
-        t: metadata["Pixels"]["SizeT"],
-        c: metadata["Pixels"]["SizeC"]
+        z: metadata['Pixels']['SizeZ'],
+        t: metadata['Pixels']['SizeT'],
+        c: metadata['Pixels']['SizeC']
       }
     }
   );
   return {
     pyramidIndexer,
-    levels: baseImage.fileDirectory.SubIFDs ? baseImage.fileDirectory.SubIFDs.length + 1 : 1,
+    levels: baseImage.fileDirectory.SubIFDs
+      ? baseImage.fileDirectory.SubIFDs.length + 1
+      : 1,
     tileSize: getTiffTileSize(baseImage),
-    axes: extractAxesFromPixels(metadata["Pixels"]),
-    dtype: parsePixelDataType(metadata["Pixels"]["Type"]),
+    axes: extractAxesFromPixels(metadata['Pixels']),
+    dtype: parsePixelDataType(metadata['Pixels']['Type']),
     meta: {
-      physicalSizes: extractPhysicalSizesfromPixels(metadata["Pixels"]),
-      photometricInterpretation: baseImage.fileDirectory.PhotometricInterpretation
+      physicalSizes: extractPhysicalSizesfromPixels(metadata['Pixels']),
+      photometricInterpretation:
+        baseImage.fileDirectory.PhotometricInterpretation
     }
   };
 }
 async function loadMultifileOmeTiff(source, options = {}) {
   assert(
     !(source instanceof File),
-    "File or Blob not supported for multifile OME-TIFF"
+    'File or Blob not supported for multifile OME-TIFF'
   );
   const url = new URL(source);
-  const text = await fetch(url).then((res) => res.text());
+  const text = await fetch(url).then(res => res.text());
   const parsed = fromString(text);
   const rois = parsed.rois || [];
   const roiRefs = parsed.roiRefs || [];
-  const roiMap = new Map(rois.map((roi) => [roi.ID, roi]));
-  const images = (parsed.images || []).map((image) => {
-    const imageROIRefs = roiRefs.filter((roiRef) => {
+  const roiMap = new Map(rois.map(roi => [roi.ID, roi]));
+  const images = (parsed.images || []).map(image => {
+    const imageROIRefs = roiRefs.filter(roiRef => {
       return true;
     });
-    const imageROIs = imageROIRefs.map((roiRef) => roiMap.get(roiRef.ID)).filter(Boolean);
+    const imageROIs = imageROIRefs
+      .map(roiRef => roiMap.get(roiRef.ID))
+      .filter(Boolean);
     const { ROIRef, ...imageWithoutRefs } = image;
     return {
       ...imageWithoutRefs,
@@ -996,15 +1286,20 @@ async function loadMultifileOmeTiff(source, options = {}) {
     });
     const data = Array.from(
       { length: opts.levels },
-      (_, level) => new TiffPixelSource(
-        (sel) => opts.pyramidIndexer({ t: sel.t ?? 0, c: sel.c ?? 0, z: sel.z ?? 0 }, level),
-        opts.dtype,
-        opts.tileSize,
-        getShapeForBinaryDownsampleLevel({ axes: opts.axes, level }),
-        opts.axes.labels,
-        opts.meta,
-        options.pool
-      )
+      (_, level) =>
+        new TiffPixelSource(
+          sel =>
+            opts.pyramidIndexer(
+              { t: sel.t ?? 0, c: sel.c ?? 0, z: sel.z ?? 0 },
+              level
+            ),
+          opts.dtype,
+          opts.tileSize,
+          getShapeForBinaryDownsampleLevel({ axes: opts.axes, level }),
+          opts.axes.labels,
+          opts.meta,
+          options.pool
+        )
     );
     tiffImages.push({ data, metadata });
   }
@@ -1014,12 +1309,14 @@ async function loadMultifileOmeTiff(source, options = {}) {
 function resolveMetadata(omexml, SubIFDs) {
   const rois = omexml.rois || [];
   const roiRefs = omexml.roiRefs || [];
-  const roiMap = new Map(rois.map((roi) => [roi.ID, roi]));
-  const images = (omexml.images || []).map((image) => {
-    const imageROIRefs = roiRefs.filter((roiRef) => {
+  const roiMap = new Map(rois.map(roi => [roi.ID, roi]));
+  const images = (omexml.images || []).map(image => {
+    const imageROIRefs = roiRefs.filter(roiRef => {
       return true;
     });
-    const imageROIs = imageROIRefs.map((roiRef) => roiMap.get(roiRef.ID)).filter(Boolean);
+    const imageROIs = imageROIRefs
+      .map(roiRef => roiMap.get(roiRef.ID))
+      .filter(Boolean);
     const { ROIRef, ...imageWithoutRefs } = image;
     return {
       ...imageWithoutRefs,
@@ -1035,24 +1332,24 @@ function resolveMetadata(omexml, SubIFDs) {
 function getRelativeOmeIfdIndex({ z, t, c }, image) {
   const { size, dimensionOrder } = image;
   switch (image.dimensionOrder) {
-    case "XYZCT":
+    case 'XYZCT':
       return z + size.z * c + size.z * size.c * t;
-    case "XYZTC":
+    case 'XYZTC':
       return z + size.z * t + size.z * size.t * c;
-    case "XYCTZ":
+    case 'XYCTZ':
       return c + size.c * t + size.c * size.t * z;
-    case "XYCZT":
+    case 'XYCZT':
       return c + size.c * z + size.c * size.z * t;
-    case "XYTCZ":
+    case 'XYTCZ':
       return t + size.t * c + size.t * size.c * z;
-    case "XYTZC":
+    case 'XYTZC':
       return t + size.t * z + size.t * size.z * c;
     default:
       throw new Error(`Invalid dimension order: ${dimensionOrder}`);
   }
 }
 function createSingleFileOmeTiffPyramidalIndexer(tiff, image) {
-  return createOmeImageIndexerFromResolver((sel) => {
+  return createOmeImageIndexerFromResolver(sel => {
     const withinImageIndex = getRelativeOmeIfdIndex(sel, image);
     const ifdIndex = withinImageIndex + image.ifdOffset;
     return { tiff, ifdIndex };
@@ -1070,38 +1367,40 @@ async function loadSingleFileOmeTiff(source, options = {}) {
   let imageIfdOffset = 0;
   for (const metadata of rootMeta) {
     const imageSize = {
-      z: metadata["Pixels"]["SizeZ"],
-      c: metadata["Pixels"]["SizeC"],
-      t: metadata["Pixels"]["SizeT"]
+      z: metadata['Pixels']['SizeZ'],
+      c: metadata['Pixels']['SizeC'],
+      t: metadata['Pixels']['SizeT']
     };
-    const axes = extractAxesFromPixels(metadata["Pixels"]);
+    const axes = extractAxesFromPixels(metadata['Pixels']);
     const pyramidIndexer = createSingleFileOmeTiffPyramidalIndexer(tiff, {
       size: imageSize,
       ifdOffset: imageIfdOffset,
-      dimensionOrder: metadata["Pixels"]["DimensionOrder"]
+      dimensionOrder: metadata['Pixels']['DimensionOrder']
     });
-    const dtype = parsePixelDataType(metadata["Pixels"]["Type"]);
+    const dtype = parsePixelDataType(metadata['Pixels']['Type']);
     const tileSize = getTiffTileSize(
       await pyramidIndexer({ c: 0, t: 0, z: 0 }, 0)
     );
     const meta = {
-      physicalSizes: extractPhysicalSizesfromPixels(metadata["Pixels"]),
-      photometricInterpretation: firstImage.fileDirectory.PhotometricInterpretation
+      physicalSizes: extractPhysicalSizesfromPixels(metadata['Pixels']),
+      photometricInterpretation:
+        firstImage.fileDirectory.PhotometricInterpretation
     };
-    const data = Array.from(
-      { length: levels },
-      (_, level) => {
-        return new TiffPixelSource(
-          (sel) => pyramidIndexer({ t: sel.t ?? 0, c: sel.c ?? 0, z: sel.z ?? 0 }, level),
-          dtype,
-          tileSize,
-          getShapeForBinaryDownsampleLevel({ axes, level }),
-          axes.labels,
-          meta,
-          pool
-        );
-      }
-    );
+    const data = Array.from({ length: levels }, (_, level) => {
+      return new TiffPixelSource(
+        sel =>
+          pyramidIndexer(
+            { t: sel.t ?? 0, c: sel.c ?? 0, z: sel.z ?? 0 },
+            level
+          ),
+        dtype,
+        tileSize,
+        getShapeForBinaryDownsampleLevel({ axes, level }),
+        axes.labels,
+        meta,
+        pool
+      );
+    });
     images.push({ data, metadata });
     imageIfdOffset += imageSize.t * imageSize.z * imageSize.c;
   }
@@ -1110,27 +1409,31 @@ async function loadSingleFileOmeTiff(source, options = {}) {
 
 addDecoder(5, () => LZWDecoder);
 function isSupportedCompanionOmeTiffFile(source) {
-  return typeof source === "string" && source.endsWith(".companion.ome");
+  return typeof source === 'string' && source.endsWith('.companion.ome');
 }
 async function loadOmeTiff(source, opts = {}) {
-  const load = isSupportedCompanionOmeTiffFile(source) ? loadMultifileOmeTiff : loadSingleFileOmeTiff;
+  const load = isSupportedCompanionOmeTiffFile(source)
+    ? loadMultifileOmeTiff
+    : loadSingleFileOmeTiff;
   const loaders = await load(source, opts);
-  return opts.images === "all" ? loaders : loaders[0];
+  return opts.images === 'all' ? loaders : loaders[0];
 }
 function getImageSelectionName(imageName, imageNumber, imageSelections) {
-  return imageSelections.length === 1 ? imageName : `${imageName}_${imageNumber.toString()}`;
+  return imageSelections.length === 1
+    ? imageName
+    : `${imageName}_${imageNumber.toString()}`;
 }
 async function loadMultiTiff(sources, opts = {}) {
-  const { pool, headers = {}, name = "MultiTiff" } = opts;
+  const { pool, headers = {}, name = 'MultiTiff' } = opts;
   const tiffImage = [];
   const channelNames = [];
   for (const source of sources) {
     const [s, file] = source;
     const imageSelections = Array.isArray(s) ? s : [s];
-    if (typeof file === "string") {
+    if (typeof file === 'string') {
       const parsedFilename = parseFilename(file);
       const extension = parsedFilename.extension?.toLowerCase();
-      if (extension === "tif" || extension === "tiff") {
+      if (extension === 'tif' || extension === 'tiff') {
         const tiffImageName = parsedFilename.name;
         if (tiffImageName) {
           const curImage = await createGeoTiff(file, {
@@ -1177,21 +1480,31 @@ async function loadMultiTiff(sources, opts = {}) {
   if (tiffImage.length > 0) {
     return load$2(name, tiffImage, opts.channelNames || channelNames, pool);
   }
-  throw new Error("Unable to load image from provided TiffFolder source.");
+  throw new Error('Unable to load image from provided TiffFolder source.');
 }
 
 var __defProp$1 = Object.defineProperty;
-var __defNormalProp$1 = (obj, key, value) => key in obj ? __defProp$1(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __defNormalProp$1 = (obj, key, value) =>
+  key in obj
+    ? __defProp$1(obj, key, {
+        enumerable: true,
+        configurable: true,
+        writable: true,
+        value
+      })
+    : (obj[key] = value);
 var __publicField$1 = (obj, key, value) => {
-  __defNormalProp$1(obj, typeof key !== "symbol" ? key + "" : key, value);
+  __defNormalProp$1(obj, typeof key !== 'symbol' ? key + '' : key, value);
   return value;
 };
 function joinUrlParts(...args) {
-  return args.map((part, i) => {
-    if (i === 0)
-      return part.trim().replace(/[/]*$/g, "");
-    return part.trim().replace(/(^[/]*|[/]*$)/g, "");
-  }).filter((x) => x.length).join("/");
+  return args
+    .map((part, i) => {
+      if (i === 0) return part.trim().replace(/[/]*$/g, '');
+      return part.trim().replace(/(^[/]*|[/]*$)/g, '');
+    })
+    .filter(x => x.length)
+    .join('/');
 }
 class ReadOnlyStore {
   async keys() {
@@ -1201,15 +1514,15 @@ class ReadOnlyStore {
     return false;
   }
   async setItem() {
-    console.warn("Cannot write to read-only store.");
+    console.warn('Cannot write to read-only store.');
     return false;
   }
 }
 class FileStore extends ReadOnlyStore {
-  constructor(fileMap, rootPrefix = "") {
+  constructor(fileMap, rootPrefix = '') {
     super();
-    __publicField$1(this, "_map");
-    __publicField$1(this, "_rootPrefix");
+    __publicField$1(this, '_map');
+    __publicField$1(this, '_rootPrefix');
     this._map = fileMap;
     this._rootPrefix = rootPrefix;
   }
@@ -1233,7 +1546,7 @@ function isOmeZarr(dataShape, Pixels) {
 }
 function guessBioformatsLabels({ shape }, { Pixels }) {
   if (isOmeZarr(shape, Pixels)) {
-    return getLabels("XYZCT");
+    return getLabels('XYZCT');
   }
   const labels = getLabels(Pixels.DimensionOrder);
   labels.forEach((lower, i) => {
@@ -1243,47 +1556,47 @@ function guessBioformatsLabels({ shape }, { Pixels }) {
       throw Error(`Dimension ${label} is invalid for OME-XML.`);
     }
     if (shape[i] !== xmlSize) {
-      throw Error("Dimension mismatch between zarr source and OME-XML.");
+      throw Error('Dimension mismatch between zarr source and OME-XML.');
     }
   });
   return labels;
 }
 function getRootPrefix(files, rootName) {
-  const first = files.find((f) => f.path.indexOf(rootName) > 0);
+  const first = files.find(f => f.path.indexOf(rootName) > 0);
   if (!first) {
-    throw Error("Could not find root in store.");
+    throw Error('Could not find root in store.');
   }
   const prefixLength = first.path.indexOf(rootName) + rootName.length;
   return first.path.slice(0, prefixLength);
 }
 function isAxis(axisOrLabel) {
-  return typeof axisOrLabel[0] !== "string";
+  return typeof axisOrLabel[0] !== 'string';
 }
 function castLabels(dimnames) {
   return dimnames;
 }
-async function loadMultiscales(store, path = "") {
+async function loadMultiscales(store, path = '') {
   const location = zarr.root(store);
   const groupLocation = path ? location.resolve(path) : location;
-  const grp = await zarr.open(groupLocation, { kind: "group" });
+  const grp = await zarr.open(groupLocation, { kind: 'group' });
   const unknownAttrs = await grp.attrs;
-  const ngff_v0_5_or_later = "ome" in unknownAttrs;
+  const ngff_v0_5_or_later = 'ome' in unknownAttrs;
   const rootAttrs = ngff_v0_5_or_later ? unknownAttrs.ome : unknownAttrs;
-  let paths = ["0"];
-  let labels = castLabels(["t", "c", "z", "y", "x"]);
-  if ("multiscales" in rootAttrs) {
+  let paths = ['0'];
+  let labels = castLabels(['t', 'c', 'z', 'y', 'x']);
+  if ('multiscales' in rootAttrs) {
     const { datasets, axes } = rootAttrs.multiscales[0];
-    paths = datasets.map((d) => d.path);
+    paths = datasets.map(d => d.path);
     if (axes) {
       if (isAxis(axes)) {
-        labels = castLabels(axes.map((axis) => axis.name));
+        labels = castLabels(axes.map(axis => axis.name));
       } else {
         labels = castLabels(axes);
       }
     }
   }
   const data = await Promise.all(
-    paths.map((p) => zarr.open(groupLocation.resolve(p), { kind: "array" }))
+    paths.map(p => zarr.open(groupLocation.resolve(p), { kind: 'array' }))
   );
   return {
     data,
@@ -1301,9 +1614,9 @@ function guessTileSize(arr) {
 function getIndexer(labels) {
   const labelSet = new Set(labels);
   if (labelSet.size !== labels.length) {
-    throw new Error("Labels must be unique");
+    throw new Error('Labels must be unique');
   }
-  return (sel) => {
+  return sel => {
     if (Array.isArray(sel)) {
       return [...sel];
     }
@@ -1320,29 +1633,36 @@ function getIndexer(labels) {
 }
 
 var __defProp = Object.defineProperty;
-var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __defNormalProp = (obj, key, value) =>
+  key in obj
+    ? __defProp(obj, key, {
+        enumerable: true,
+        configurable: true,
+        writable: true,
+        value
+      })
+    : (obj[key] = value);
 var __publicField = (obj, key, value) => {
-  __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+  __defNormalProp(obj, typeof key !== 'symbol' ? key + '' : key, value);
   return value;
 };
 const DTYPE_LOOKUP = {
-  u1: "Uint8",
-  u2: "Uint16",
-  u4: "Uint32",
-  f4: "Float32",
-  f8: "Float64",
-  i1: "Int8",
-  i2: "Int16",
-  i4: "Int32"
+  u1: 'Uint8',
+  u2: 'Uint16',
+  u4: 'Uint32',
+  f4: 'Float32',
+  f8: 'Float64',
+  i1: 'Int8',
+  i2: 'Int16',
+  i4: 'Int32'
 };
-class BoundsCheckError extends Error {
-}
+class BoundsCheckError extends Error {}
 class ZarrPixelSource {
   constructor(data, labels, tileSize) {
     this.labels = labels;
     this.tileSize = tileSize;
-    __publicField(this, "_data");
-    __publicField(this, "_indexer");
+    __publicField(this, '_data');
+    __publicField(this, '_indexer');
     this._indexer = getIndexer(labels);
     this._data = data;
   }
@@ -1380,25 +1700,22 @@ class ZarrPixelSource {
       Math.min((y + 1) * this.tileSize, height)
     ];
     if (xStart === xStop || yStart === yStop) {
-      throw new BoundsCheckError("Tile slice is zero-sized.");
+      throw new BoundsCheckError('Tile slice is zero-sized.');
     }
     if (xStart < 0 || yStart < 0 || xStop > width || yStop > height) {
-      throw new BoundsCheckError("Tile slice is out of bounds.");
+      throw new BoundsCheckError('Tile slice is out of bounds.');
     }
     return [zarr.slice(xStart, xStop), zarr.slice(yStart, yStop)];
   }
   async _getRaw(selection, getOptions) {
     const signal = getOptions?.storeOptions?.signal;
     const result = await zarr.get(this._data, selection, signal);
-    if (typeof result !== "object") {
-      throw new Error("Expected object from zarr.get");
+    if (typeof result !== 'object') {
+      throw new Error('Expected object from zarr.get');
     }
     return result;
   }
-  async getRaster({
-    selection,
-    signal
-  }) {
+  async getRaster({ selection, signal }) {
     const sel = this._chunkIndex(selection, { x: null, y: null });
     const result = await this._getRaw(sel, { storeOptions: { signal } });
     const {
@@ -1427,7 +1744,7 @@ class ZarrPixelSource {
 
 async function load$1(root, xmlSource) {
   let xmlSourceText;
-  if (typeof xmlSource !== "string") {
+  if (typeof xmlSource !== 'string') {
     xmlSourceText = await xmlSource.text();
   } else {
     xmlSourceText = xmlSource;
@@ -1436,20 +1753,22 @@ async function load$1(root, xmlSource) {
   const images = parsed.images || [];
   const rois = parsed.rois || [];
   const roiRefs = parsed.roiRefs || [];
-  const roiMap = new Map(rois.map((roi) => [roi.ID, roi]));
+  const roiMap = new Map(rois.map(roi => [roi.ID, roi]));
   let imgMeta = images[0];
   if (imgMeta) {
-    const imageROIRefs = roiRefs.filter((roiRef) => {
+    const imageROIRefs = roiRefs.filter(roiRef => {
       return true;
     });
-    const imageROIs = imageROIRefs.map((roiRef) => roiMap.get(roiRef.ID)).filter(Boolean);
+    const imageROIs = imageROIRefs
+      .map(roiRef => roiMap.get(roiRef.ID))
+      .filter(Boolean);
     const { ROIRef: _omitROIRef, ...imgWithoutRefs } = imgMeta;
     imgMeta = { ...imgWithoutRefs, ROIs: imageROIs };
   }
-  const { data } = await loadMultiscales(root, "0");
+  const { data } = await loadMultiscales(root, '0');
   const labels = guessBioformatsLabels(data[0], imgMeta);
   const tileSize = guessTileSize(data[0]);
-  const pyramid = data.map((arr) => new ZarrPixelSource(arr, labels, tileSize));
+  const pyramid = data.map(arr => new ZarrPixelSource(arr, labels, tileSize));
   return {
     data: pyramid,
     metadata: imgMeta
@@ -1459,7 +1778,7 @@ async function load$1(root, xmlSource) {
 async function load(store) {
   const { data, rootAttrs, labels } = await loadMultiscales(store);
   const tileSize = guessTileSize(data[0]);
-  const pyramid = data.map((arr) => new ZarrPixelSource(arr, labels, tileSize));
+  const pyramid = data.map(arr => new ZarrPixelSource(arr, labels, tileSize));
   return {
     data: pyramid,
     metadata: rootAttrs
@@ -1468,21 +1787,26 @@ async function load(store) {
 
 async function loadOmeZarr(source, options = {}) {
   const store = new FetchStore(source, options.fetchOptions);
-  if (options?.type !== "multiscales") {
-    throw Error("Only multiscale OME-Zarr is supported.");
+  if (options?.type !== 'multiscales') {
+    throw Error('Only multiscale OME-Zarr is supported.');
   }
   return load(store);
 }
-async function _DEPRECATED_loadBioformatsZarrWithPaths(source, metadataPath, zarrDir, options = {}) {
-  if (typeof source === "string") {
-    const url = source.endsWith("/") ? source.slice(0, -1) : source;
+async function _DEPRECATED_loadBioformatsZarrWithPaths(
+  source,
+  metadataPath,
+  zarrDir,
+  options = {}
+) {
+  if (typeof source === 'string') {
+    const url = source.endsWith('/') ? source.slice(0, -1) : source;
     const store2 = new FetchStore(`${url}/${zarrDir}`, options.fetchOptions);
     const xmlSource = await fetch(
       `${url}/${metadataPath}`,
       options.fetchOptions
     );
     if (!xmlSource.ok) {
-      throw Error("No OME-XML metadata found for store.");
+      throw Error('No OME-XML metadata found for store.');
     }
     return load$1(store2, xmlSource);
   }
@@ -1496,7 +1820,7 @@ async function _DEPRECATED_loadBioformatsZarrWithPaths(source, metadataPath, zar
     }
   }
   if (!xmlFile) {
-    throw Error("No OME-XML metadata found for store.");
+    throw Error('No OME-XML metadata found for store.');
   }
   const store = new FileStore(fMap, getRootPrefix(source, zarrDir));
   return load$1(store, xmlFile);
@@ -1505,17 +1829,29 @@ async function DEPRECATED_loadBioformatsZarr(source, options = {}) {
   return Promise.any([
     _DEPRECATED_loadBioformatsZarrWithPaths(
       source,
-      "METADATA.ome.xml",
-      "data.zarr",
+      'METADATA.ome.xml',
+      'data.zarr',
       options
     ),
     _DEPRECATED_loadBioformatsZarrWithPaths(
       source,
-      "OME/METADATA.ome.xml",
-      "",
+      'OME/METADATA.ome.xml',
+      '',
       options
     )
   ]);
 }
 
-export { DEPRECATED_loadBioformatsZarr, SIGNAL_ABORTED, TiffPixelSource, ZarrPixelSource, getChannelStats, getImageSize, isInterleaved, loadMultiTiff, loadOmeTiff, loadOmeZarr, load as loadOmeZarrFromStore };
+export {
+  DEPRECATED_loadBioformatsZarr,
+  SIGNAL_ABORTED,
+  TiffPixelSource,
+  ZarrPixelSource,
+  getChannelStats,
+  getImageSize,
+  isInterleaved,
+  loadMultiTiff,
+  loadOmeTiff,
+  loadOmeZarr,
+  load as loadOmeZarrFromStore
+};
