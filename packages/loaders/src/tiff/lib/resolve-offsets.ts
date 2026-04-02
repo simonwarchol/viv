@@ -12,7 +12,7 @@ interface ScannerOptions {
   initialWindowSize?: number;
   /** Maximum byte window to fetch (default 1 MB). */
   maxWindowSize?: number;
-  /** 'fixed' uses initialWindowSize for every request; 'adaptive' doubles on each miss (default 'adaptive'). */
+  /** 'fixed' uses initialWindowSize for every request; 'adaptive' doubles only when current buffer is too small (default 'adaptive'). */
   mode?: 'fixed' | 'adaptive';
 }
 
@@ -136,8 +136,13 @@ async function fetchRange(
       Range: `bytes=${start}-${end - 1}`
     }
   });
-  if (!resp.ok && resp.status !== 206) {
-    throw new Error(`HTTP ${resp.status} fetching range ${start}-${end}`);
+  // 206 Partial Content is the expected response for Range requests.
+  // Reject 200 OK — it means the server ignored the Range header and
+  // returned the entire file, which defeats the purpose for large TIFFs.
+  if (resp.status !== 206) {
+    throw new Error(
+      `Expected HTTP 206 for range request, got ${resp.status} (bytes=${start}-${end - 1})`
+    );
   }
   return resp.arrayBuffer();
 }
@@ -160,7 +165,7 @@ function normalizeHeaders(
 
 /**
  * Try to fetch a sibling `offsets.json` next to the TIFF URL.
- * Returns the parsed number[] or `null` on any failure.
+ * Returns the parsed number[] or `null` on any failure or invalid data.
  */
 async function fetchOffsetsJson(
   url: string,
@@ -173,10 +178,14 @@ async function fetchOffsetsJson(
     });
     if (!resp.ok) return null;
     const data = await resp.json();
-    if (Array.isArray(data) && data.every(n => typeof n === 'number')) {
-      return data;
+    if (!Array.isArray(data) || data.length === 0) return null;
+    // Every element must be a positive safe integer (byte offset).
+    for (const n of data) {
+      if (typeof n !== 'number' || !Number.isSafeInteger(n) || n < 0) {
+        return null;
+      }
     }
-    return null;
+    return data;
   } catch {
     return null;
   }
@@ -185,9 +194,10 @@ async function fetchOffsetsJson(
 /**
  * Scan IFD offsets directly from a remote TIFF using HTTP Range requests.
  *
- * Reads the TIFF header, then greedily fetches byte windows and parses
- * consecutive IFDs. Only issues new requests when the next IFD falls
- * outside the current buffer.
+ * Reads the TIFF header, then fetches byte windows and parses consecutive
+ * IFDs from each buffer. Only issues a new request when the next IFD falls
+ * outside the current buffer. In adaptive mode, the window size grows only
+ * when a buffer is too small to parse the current IFD.
  */
 async function scanIfdOffsets(
   url: string,
@@ -212,10 +222,10 @@ async function scanIfdOffsets(
   while (currentOffset !== 0) {
     offsets.push(currentOffset);
 
-    // Check if currentOffset is within our buffer.
+    // Ensure currentOffset is within our buffer.
     const localOffset = currentOffset - bufStart;
     if (bufStart < 0 || localOffset < 0 || localOffset >= buf.byteLength) {
-      // Need to fetch a new window.
+      // Need to fetch a new window (IFD is outside current buffer).
       buf = await fetchRange(
         url,
         currentOffset,
@@ -223,33 +233,37 @@ async function scanIfdOffsets(
         headers
       );
       bufStart = currentOffset;
-      // Adaptive: grow window for next fetch.
-      if (opts.mode === 'adaptive') {
-        windowSize = Math.min(windowSize * 2, opts.maxWindowSize);
-      }
     }
 
     const result = parseIfd(buf, currentOffset - bufStart, format);
-    if (result === null) {
-      // Buffer too small to parse this IFD — refetch with a larger window.
-      const largerSize = Math.min(windowSize * 2, opts.maxWindowSize);
-      buf = await fetchRange(
-        url,
-        currentOffset,
-        currentOffset + largerSize,
-        headers
-      );
-      bufStart = currentOffset;
-      const retry = parseIfd(buf, 0, format);
-      if (retry === null) {
-        throw new Error(
-          `IFD at offset ${currentOffset} is too large to parse within maxWindowSize`
-        );
-      }
-      currentOffset = retry.nextIfdOffset;
-    } else {
+    if (result !== null) {
       currentOffset = result.nextIfdOffset;
+      continue;
     }
+
+    // Buffer too small to parse this IFD.
+    if (opts.mode === 'fixed' || windowSize >= opts.maxWindowSize) {
+      throw new Error(
+        `IFD at offset ${currentOffset} does not fit in ${windowSize}-byte window (mode=${opts.mode}, max=${opts.maxWindowSize})`
+      );
+    }
+
+    // Adaptive: grow and retry.
+    windowSize = Math.min(windowSize * 2, opts.maxWindowSize);
+    buf = await fetchRange(
+      url,
+      currentOffset,
+      currentOffset + windowSize,
+      headers
+    );
+    bufStart = currentOffset;
+    const retry = parseIfd(buf, 0, format);
+    if (retry === null) {
+      throw new Error(
+        `IFD at offset ${currentOffset} does not fit in ${windowSize}-byte window`
+      );
+    }
+    currentOffset = retry.nextIfdOffset;
   }
 
   return offsets;
