@@ -34,7 +34,9 @@ function isCompleteTiffDataItem(
   );
 }
 
-function createMultifileImageDataLookup(tiffData: any) {
+function createMultifileImageDataLookup(
+  tiffData: any
+) {
   type ImageDataPointer = { ifd: number; filename: string };
   const lookup: Map<string, ImageDataPointer> = new Map();
   function keyFor({ t, c, z }: OmeTiffSelection) {
@@ -185,11 +187,7 @@ export async function loadMultifileOmeTiff(
       { length: opts.levels },
       (_, level) =>
         new TiffPixelSource(
-          sel =>
-            opts.pyramidIndexer(
-              { t: sel.t ?? 0, c: sel.c ?? 0, z: sel.z ?? 0 },
-              level
-            ),
+          sel => opts.pyramidIndexer({ t: sel.t ?? 0, c: sel.c ?? 0, z: sel.z ?? 0 }, level),
           opts.dtype,
           opts.tileSize,
           getShapeForBinaryDownsampleLevel({ axes: opts.axes, level }),

@@ -159,21 +159,20 @@ export async function loadSingleFileOmeTiff(
       photometricInterpretation:
         firstImage.fileDirectory.PhotometricInterpretation
     };
-    const data = Array.from({ length: levels }, (_, level) => {
-      return new TiffPixelSource(
-        sel =>
-          pyramidIndexer(
-            { t: sel.t ?? 0, c: sel.c ?? 0, z: sel.z ?? 0 },
-            level
-          ),
-        dtype,
-        tileSize,
-        getShapeForBinaryDownsampleLevel({ axes, level }),
-        axes.labels,
-        meta,
-        pool
-      );
-    });
+    const data = Array.from(
+      { length: levels },
+      (_, level) => {
+        return new TiffPixelSource(
+          sel => pyramidIndexer({ t: sel.t ?? 0, c: sel.c ?? 0, z: sel.z ?? 0 }, level),
+          dtype,
+          tileSize,
+          getShapeForBinaryDownsampleLevel({ axes, level }),
+          axes.labels,
+          meta,
+          pool
+        );
+      }
+    );
     images.push({ data: data as TiffPixelSource<OmeTiffDims>[], metadata });
     imageIfdOffset += imageSize.t * imageSize.z * imageSize.c;
   }

@@ -1,33 +1,14 @@
-import {
-  COORDINATE_SYSTEM,
-  CompositeLayer,
-  Layer,
-  OrthographicView,
-  picking,
-  project32
-} from '@deck.gl/core';
-import { TileLayer } from '@deck.gl/geo-layers';
-import {
-  BitmapLayer as BitmapLayer$1,
-  LineLayer,
-  PolygonLayer,
-  TextLayer
-} from '@deck.gl/layers';
+import { OrthographicView, COORDINATE_SYSTEM, CompositeLayer, Layer, project32, picking } from '@deck.gl/core';
 import { GL } from '@luma.gl/constants';
-import { Geometry, Model } from '@luma.gl/engine';
-import { ShaderAssembler } from '@luma.gl/shadertools';
 import { Matrix4 } from '@math.gl/core';
+import { ColorPaletteExtension, ColorPalette3DExtensions } from '@vivjs/extensions';
+import { isInterleaved, SIGNAL_ABORTED, getImageSize } from '@vivjs/loaders';
+import { BitmapLayer as BitmapLayer$1, PolygonLayer, LineLayer, TextLayer } from '@deck.gl/layers';
+import { Model, Geometry } from '@luma.gl/engine';
+import { MAX_CHANNELS, DTYPE_VALUES, DEFAULT_FONT_FAMILY } from '@vivjs/constants';
+import { ShaderAssembler } from '@luma.gl/shadertools';
+import { TileLayer } from '@deck.gl/geo-layers';
 import { Plane } from '@math.gl/culling';
-import {
-  DEFAULT_FONT_FAMILY,
-  DTYPE_VALUES,
-  MAX_CHANNELS
-} from '@vivjs/constants';
-import {
-  ColorPalette3DExtensions,
-  ColorPaletteExtension
-} from '@vivjs/extensions';
-import { SIGNAL_ABORTED, getImageSize, isInterleaved } from '@vivjs/loaders';
 
 function range(len) {
   return [...Array(len).keys()];
@@ -39,8 +20,7 @@ function padWithDefault(arr, defaultValue, padWidth) {
   return arr;
 }
 function getDtypeValues(dtype) {
-  const normalizedDtype =
-    dtype.charAt(0).toUpperCase() + dtype.slice(1).toLowerCase();
+  const normalizedDtype = dtype.charAt(0).toUpperCase() + dtype.slice(1).toLowerCase();
   const values = DTYPE_VALUES[normalizedDtype];
   if (!values) {
     const valid = Object.keys(DTYPE_VALUES);
@@ -55,11 +35,11 @@ function padContrastLimits({
   dtype
 }) {
   const maxSliderValue = domain?.[1] || getDtypeValues(dtype).max;
-  const newContrastLimits = contrastLimits.map((slider, i) =>
-    channelsVisible[i]
-      ? slider
-      : /** @type {[number, number]} */
-        [maxSliderValue, maxSliderValue]
+  const newContrastLimits = contrastLimits.map(
+    (slider, i) => channelsVisible[i] ? slider : (
+      /** @type {[number, number]} */
+      [maxSliderValue, maxSliderValue]
+    )
   );
   const padSize = MAX_CHANNELS - newContrastLimits.length;
   if (padSize < 0) {
@@ -101,43 +81,43 @@ const TARGETS = [1, 2, 3, 4, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1e3];
 const MIN_TARGET = TARGETS[0];
 const MAX_TARGET = TARGETS[TARGETS.length - 1];
 const SI_PREFIXES = [
-  { symbol: 'Y', exponent: 24 },
-  { symbol: 'Z', exponent: 21 },
-  { symbol: 'E', exponent: 18 },
-  { symbol: 'P', exponent: 15 },
-  { symbol: 'T', exponent: 12 },
-  { symbol: 'G', exponent: 9 },
-  { symbol: 'M', exponent: 6 },
-  { symbol: 'k', exponent: 3 },
-  { symbol: 'h', exponent: 2 },
-  { symbol: 'da', exponent: 1 },
-  { symbol: '', exponent: 0 },
-  { symbol: 'd', exponent: -1 },
-  { symbol: 'c', exponent: -2 },
-  { symbol: 'm', exponent: -3 },
-  { symbol: '\xB5', exponent: -6 },
-  { symbol: 'n', exponent: -9 },
-  { symbol: 'p', exponent: -12 },
-  { symbol: 'f', exponent: -15 },
-  { symbol: 'a', exponent: -18 },
-  { symbol: 'z', exponent: -21 },
-  { symbol: 'y', exponent: -24 }
+  { symbol: "Y", exponent: 24 },
+  { symbol: "Z", exponent: 21 },
+  { symbol: "E", exponent: 18 },
+  { symbol: "P", exponent: 15 },
+  { symbol: "T", exponent: 12 },
+  { symbol: "G", exponent: 9 },
+  { symbol: "M", exponent: 6 },
+  { symbol: "k", exponent: 3 },
+  { symbol: "h", exponent: 2 },
+  { symbol: "da", exponent: 1 },
+  { symbol: "", exponent: 0 },
+  { symbol: "d", exponent: -1 },
+  { symbol: "c", exponent: -2 },
+  { symbol: "m", exponent: -3 },
+  { symbol: "\xB5", exponent: -6 },
+  { symbol: "n", exponent: -9 },
+  { symbol: "p", exponent: -12 },
+  { symbol: "f", exponent: -15 },
+  { symbol: "a", exponent: -18 },
+  { symbol: "z", exponent: -21 },
+  { symbol: "y", exponent: -24 }
 ];
 function sizeToMeters(size, unit) {
-  if (!unit || unit === 'm') {
+  if (!unit || unit === "m") {
     return size;
   }
   if (unit.length > 1) {
     let unitPrefix = unit.substring(0, unit.length - 1);
-    if (unitPrefix === 'u') {
-      unitPrefix = '\xB5';
+    if (unitPrefix === "u") {
+      unitPrefix = "\xB5";
     }
-    const unitObj = SI_PREFIXES.find(p => p.symbol === unitPrefix);
+    const unitObj = SI_PREFIXES.find((p) => p.symbol === unitPrefix);
     if (unitObj) {
       return size * 10 ** unitObj.exponent;
     }
   }
-  throw new Error('Received unknown unit');
+  throw new Error("Received unknown unit");
 }
 function snapValue(value) {
   let magnitude = 0;
@@ -145,22 +125,22 @@ function snapValue(value) {
     magnitude = Math.floor(Math.log10(value));
   }
   let snappedUnit = SI_PREFIXES.find(
-    p => p.exponent % 3 === 0 && p.exponent <= magnitude
+    (p) => p.exponent % 3 === 0 && p.exponent <= magnitude
   );
   let adjustedValue = value / 10 ** snappedUnit.exponent;
   if (adjustedValue > 500 && adjustedValue <= 1e3) {
     snappedUnit = SI_PREFIXES.find(
-      p => p.exponent % 3 === 0 && p.exponent <= magnitude + 3
+      (p) => p.exponent % 3 === 0 && p.exponent <= magnitude + 3
     );
     adjustedValue = value / 10 ** snappedUnit.exponent;
   }
-  const targetNewUnits = TARGETS.find(t => t > adjustedValue);
+  const targetNewUnits = TARGETS.find((t) => t > adjustedValue);
   const targetOrigUnits = targetNewUnits * 10 ** snappedUnit.exponent;
   return [targetOrigUnits, targetNewUnits, snappedUnit.symbol];
 }
 function addAlpha(array) {
   if (!(array instanceof Uint8Array)) {
-    throw new Error('Expected Uint8Array');
+    throw new Error("Expected Uint8Array");
   }
   const alphaArray = new Uint8Array(array.length + array.length / 3);
   for (let i = 0; i < array.length / 3; i += 1) {
@@ -185,15 +165,12 @@ const PHOTOMETRIC_INTERPRETATIONS = {
 };
 const defaultProps$8 = {
   ...BitmapLayer$1.defaultProps,
-  pickable: { type: 'boolean', value: true, compare: true },
+  pickable: { type: "boolean", value: true, compare: true },
   coordinateSystem: COORDINATE_SYSTEM.CARTESIAN
 };
-const getPhotometricInterpretationShader = (
-  photometricInterpretation,
-  transparentColorInHook
-) => {
-  const useTransparentColor = transparentColorInHook ? 'true' : 'false';
-  const transparentColorVector = `vec3(${(transparentColorInHook || [0, 0, 0]).map(i => String(i / 255)).join(',')})`;
+const getPhotometricInterpretationShader = (photometricInterpretation, transparentColorInHook) => {
+  const useTransparentColor = transparentColorInHook ? "true" : "false";
+  const transparentColorVector = `vec3(${(transparentColorInHook || [0, 0, 0]).map((i) => String(i / 255)).join(",")})`;
   switch (photometricInterpretation) {
     case PHOTOMETRIC_INTERPRETATIONS.RGB:
       return `color[3] = (${useTransparentColor} && (color.rgb == ${transparentColorVector})) ? 0.0 : color.a;`;
@@ -216,12 +193,12 @@ const getPhotometricInterpretationShader = (
         `;
     default:
       console.error(
-        'Unsupported photometric interpretation or none provided.  No transformation will be done to image data'
+        "Unsupported photometric interpretation or none provided.  No transformation will be done to image data"
       );
-      return '';
+      return "";
   }
 };
-const getTransparentColor = photometricInterpretation => {
+const getTransparentColor = (photometricInterpretation) => {
   switch (photometricInterpretation) {
     case PHOTOMETRIC_INTERPRETATIONS.RGB:
       return [0, 0, 0, 0];
@@ -233,7 +210,7 @@ const getTransparentColor = photometricInterpretation => {
       return [16, 128, 128, 0];
     default:
       console.error(
-        'Unsupported photometric interpretation or none provided.  No transformation will be done to image data'
+        "Unsupported photometric interpretation or none provided.  No transformation will be done to image data"
       );
       return [0, 0, 0, 0];
   }
@@ -249,10 +226,10 @@ class BitmapLayerWrapper extends BitmapLayer$1 {
       ...this.getShaders(),
       id: this.props.id,
       bufferLayout: this.getAttributeManager().getBufferLayouts(),
-      topology: 'triangle-list',
+      topology: "triangle-list",
       isInstanced: false,
       inject: {
-        'fs:DECKGL_FILTER_COLOR': photometricInterpretationShader
+        "fs:DECKGL_FILTER_COLOR": photometricInterpretationShader
       }
     });
   }
@@ -284,27 +261,27 @@ const BitmapLayer = class extends CompositeLayer {
     });
   }
 };
-BitmapLayer.layerName = 'BitmapLayer';
+BitmapLayer.layerName = "BitmapLayer";
 BitmapLayer.PHOTOMETRIC_INTERPRETATIONS = PHOTOMETRIC_INTERPRETATIONS;
 BitmapLayer.defaultProps = {
   ...defaultProps$8,
   // We don't want this layer to bind the texture so the type should not be `image`.
-  image: { type: 'object', value: {}, compare: true },
-  transparentColor: { type: 'array', value: [0, 0, 0], compare: true },
-  photometricInterpretation: { type: 'number', value: 2, compare: true }
+  image: { type: "object", value: {}, compare: true },
+  transparentColor: { type: "array", value: [0, 0, 0], compare: true },
+  photometricInterpretation: { type: "number", value: 2, compare: true }
 };
 BitmapLayerWrapper.defaultProps = defaultProps$8;
-BitmapLayerWrapper.layerName = 'BitmapLayerWrapper';
+BitmapLayerWrapper.layerName = "BitmapLayerWrapper";
 
 const fs$2 = `float apply_contrast_limits(float intensity, vec2 contrastLimits) {
     return  max(0., (intensity - contrastLimits[0]) / max(0.0005, (contrastLimits[1] - contrastLimits[0])));
 }
 `;
 const channels = {
-  name: 'channel-intensity',
+  name: "channel-intensity",
   defines: {
-    SAMPLER_TYPE: 'usampler2D',
-    COLORMAP_FUNCTION: ''
+    SAMPLER_TYPE: "usampler2D",
+    COLORMAP_FUNCTION: ""
   },
   fs: fs$2
 };
@@ -377,27 +354,27 @@ void main(void) {
 
 const coreShaderModule = { fs: fs$1, vs: vs$1 };
 function getRenderingAttrs$1(dtype, interpolation) {
-  const isLinear = interpolation === 'linear';
-  const values = getDtypeValues(isLinear ? 'Float32' : dtype);
+  const isLinear = interpolation === "linear";
+  const values = getDtypeValues(isLinear ? "Float32" : dtype);
   return {
     shaderModule: coreShaderModule,
     filter: interpolation,
-    cast: isLinear ? data => new Float32Array(data) : data => data,
+    cast: isLinear ? (data) => new Float32Array(data) : (data) => data,
     ...values
   };
 }
 
 const defaultProps$7 = {
-  pickable: { type: 'boolean', value: true, compare: true },
+  pickable: { type: "boolean", value: true, compare: true },
   coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
-  channelData: { type: 'object', value: {}, compare: true },
-  bounds: { type: 'array', value: [0, 0, 1, 1], compare: true },
-  contrastLimits: { type: 'array', value: [], compare: true },
-  channelsVisible: { type: 'array', value: [], compare: true },
-  dtype: { type: 'string', value: 'Uint16', compare: true },
+  channelData: { type: "object", value: {}, compare: true },
+  bounds: { type: "array", value: [0, 0, 1, 1], compare: true },
+  contrastLimits: { type: "array", value: [], compare: true },
+  channelsVisible: { type: "array", value: [], compare: true },
+  dtype: { type: "string", value: "Uint16", compare: true },
   interpolation: {
-    type: 'string',
-    value: 'nearest',
+    type: "string",
+    value: "nearest",
     compare: true
   }
 };
@@ -409,11 +386,10 @@ const XRLayer = class extends Layer {
   getShaders() {
     const { dtype, interpolation } = this.props;
     const { shaderModule, sampler } = getRenderingAttrs$1(dtype, interpolation);
-    const extensionDefinesDeckglProcessIntensity =
-      this._isHookDefinedByExtensions('fs:DECKGL_PROCESS_INTENSITY');
+    const extensionDefinesDeckglProcessIntensity = this._isHookDefinedByExtensions("fs:DECKGL_PROCESS_INTENSITY");
     const newChannelsModule = { ...channels, inject: {} };
     if (!extensionDefinesDeckglProcessIntensity) {
-      newChannelsModule.inject['fs:DECKGL_PROCESS_INTENSITY'] = `
+      newChannelsModule.inject["fs:DECKGL_PROCESS_INTENSITY"] = `
         intensity = apply_contrast_limits(intensity, contrastLimits);
       `;
     }
@@ -427,11 +403,11 @@ const XRLayer = class extends Layer {
   }
   _isHookDefinedByExtensions(hookName) {
     const { extensions } = this.props;
-    return extensions?.some(e => {
+    return extensions?.some((e) => {
       const shaders = e.getShaders();
       const { inject = {}, modules = [] } = shaders;
       const definesInjection = inject[hookName];
-      const moduleDefinesInjection = modules.some(m => m?.inject[hookName]);
+      const moduleDefinesInjection = modules.some((m) => m?.inject[hookName]);
       return definesInjection || moduleDefinesInjection;
     });
   }
@@ -448,7 +424,7 @@ const XRLayer = class extends Layer {
     attributeManager.add({
       positions: {
         size: 3,
-        type: 'float64',
+        type: "float64",
         fp64: this.use64bitPositions(),
         update: this.calculatePositions,
         noAlloc: true
@@ -459,10 +435,8 @@ const XRLayer = class extends Layer {
       positions: new Float64Array(12)
     });
     const shaderAssembler = ShaderAssembler.getDefaultShaderAssembler();
-    const mutateStr =
-      'fs:DECKGL_MUTATE_COLOR(inout vec4 rgba, float intensity0, float intensity1, float intensity2, float intensity3, float intensity4, float intensity5, vec2 vTexCoord)';
-    const processStr =
-      'fs:DECKGL_PROCESS_INTENSITY(inout float intensity, vec2 contrastLimits, int channelIndex)';
+    const mutateStr = "fs:DECKGL_MUTATE_COLOR(inout vec4 rgba, float intensity0, float intensity1, float intensity2, float intensity3, float intensity4, float intensity5, vec2 vTexCoord)";
+    const processStr = "fs:DECKGL_PROCESS_INTENSITY(inout float intensity, vec2 contrastLimits, int channelIndex)";
     if (!shaderAssembler._hookFunctions.includes(mutateStr)) {
       shaderAssembler.addShaderHook(mutateStr);
     }
@@ -476,7 +450,7 @@ const XRLayer = class extends Layer {
   finalizeState() {
     super.finalizeState();
     if (this.state.textures) {
-      Object.values(this.state.textures).forEach(tex => tex?.delete());
+      Object.values(this.state.textures).forEach((tex) => tex?.delete());
     }
   }
   /**
@@ -485,10 +459,7 @@ const XRLayer = class extends Layer {
    */
   updateState({ props, oldProps, changeFlags, ...rest }) {
     super.updateState({ props, oldProps, changeFlags, ...rest });
-    if (
-      changeFlags.extensionsChanged ||
-      props.interpolation !== oldProps.interpolation
-    ) {
+    if (changeFlags.extensionsChanged || props.interpolation !== oldProps.interpolation) {
       const { device } = this.context;
       if (this.state.model) {
         this.state.model.destroy();
@@ -496,16 +467,12 @@ const XRLayer = class extends Layer {
       this.setState({ model: this._getModel(device) });
       this.getAttributeManager().invalidateAll();
     }
-    if (
-      (props.channelData !== oldProps.channelData &&
-        props.channelData?.data !== oldProps.channelData?.data) ||
-      props.interpolation !== oldProps.interpolation
-    ) {
+    if (props.channelData !== oldProps.channelData && props.channelData?.data !== oldProps.channelData?.data || props.interpolation !== oldProps.interpolation) {
       this.loadChannelTextures(props.channelData);
     }
     const attributeManager = this.getAttributeManager();
     if (props.bounds !== oldProps.bounds) {
-      attributeManager.invalidate('positions');
+      attributeManager.invalidate("positions");
     }
   }
   /**
@@ -519,7 +486,7 @@ const XRLayer = class extends Layer {
       ...this.getShaders(),
       id: this.props.id,
       geometry: new Geometry({
-        topology: 'triangle-list',
+        topology: "triangle-list",
         vertexCount: 6,
         indices: new Uint16Array([0, 1, 3, 1, 2, 3]),
         attributes: {
@@ -561,7 +528,7 @@ const XRLayer = class extends Layer {
     const { textures, model } = this.state;
     if (textures && model) {
       const { contrastLimits, domain, dtype, channelsVisible } = this.props;
-      const numTextures = Object.values(textures).filter(t => t).length;
+      const numTextures = Object.values(textures).filter((t) => t).length;
       const paddedContrastLimits = padContrastLimits({
         contrastLimits: contrastLimits.slice(0, numTextures),
         channelsVisible: channelsVisible.slice(0, numTextures),
@@ -592,13 +559,9 @@ const XRLayer = class extends Layer {
       channel5: null
     };
     if (this.state.textures) {
-      Object.values(this.state.textures).forEach(tex => tex?.delete());
+      Object.values(this.state.textures).forEach((tex) => tex?.delete());
     }
-    if (
-      channelData &&
-      Object.keys(channelData).length > 0 &&
-      channelData.data
-    ) {
+    if (channelData && Object.keys(channelData).length > 0 && channelData.data) {
       channelData.data.forEach((d, i) => {
         textures[`channel${i}`] = this.dataToTexture(
           d,
@@ -607,8 +570,10 @@ const XRLayer = class extends Layer {
         );
       }, this);
       for (const key in textures) {
-        if (!textures.channel0) throw new Error('Bad texture state!');
-        if (!textures[key]) textures[key] = textures.channel0;
+        if (!textures.channel0)
+          throw new Error("Bad texture state!");
+        if (!textures[key])
+          textures[key] = textures.channel0;
       }
       this.setState({ textures });
     }
@@ -622,7 +587,7 @@ const XRLayer = class extends Layer {
     return this.context.device.createTexture({
       width,
       height,
-      dimension: '2d',
+      dimension: "2d",
       data: attrs.cast?.(data) ?? data,
       // we don't want or need mimaps
       mipmaps: false,
@@ -631,42 +596,42 @@ const XRLayer = class extends Layer {
         minFilter: attrs.filter,
         magFilter: attrs.filter,
         // CLAMP_TO_EDGE to remove tile artifacts
-        addressModeU: 'clamp-to-edge',
-        addressModeV: 'clamp-to-edge'
+        addressModeU: "clamp-to-edge",
+        addressModeV: "clamp-to-edge"
       },
       format: attrs.format
     });
   }
 };
-XRLayer.layerName = 'XRLayer';
+XRLayer.layerName = "XRLayer";
 XRLayer.defaultProps = defaultProps$7;
 
 const defaultProps$6 = {
-  pickable: { type: 'boolean', value: true, compare: true },
+  pickable: { type: "boolean", value: true, compare: true },
   coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
-  contrastLimits: { type: 'array', value: [], compare: true },
-  channelsVisible: { type: 'array', value: [], compare: true },
-  selections: { type: 'array', value: [], compare: true },
-  domain: { type: 'array', value: [], compare: true },
-  viewportId: { type: 'string', value: '', compare: true },
+  contrastLimits: { type: "array", value: [], compare: true },
+  channelsVisible: { type: "array", value: [], compare: true },
+  selections: { type: "array", value: [], compare: true },
+  domain: { type: "array", value: [], compare: true },
+  viewportId: { type: "string", value: "", compare: true },
   loader: {
-    type: 'object',
+    type: "object",
     value: {
       getRaster: async () => ({ data: [], height: 0, width: 0 }),
-      dtype: 'Uint16',
+      dtype: "Uint16",
       shape: []
     },
     compare: true
   },
-  onClick: { type: 'function', value: null, compare: true },
-  onViewportLoad: { type: 'function', value: null, compare: true },
+  onClick: { type: "function", value: null, compare: true },
+  onViewportLoad: { type: "function", value: null, compare: true },
   interpolation: {
-    type: 'number',
-    value: 'nearest',
+    type: "number",
+    value: "nearest",
     compare: true
   },
   extensions: {
-    type: 'array',
+    type: "array",
     value: [new ColorPaletteExtension()],
     compare: true
   }
@@ -683,31 +648,29 @@ const ImageLayer = class extends CompositeLayer {
       const abortController = new AbortController();
       this.setState({ abortController });
       const { signal } = abortController;
-      const getRaster = selection => loader.getRaster({ selection, signal });
+      const getRaster = (selection) => loader.getRaster({ selection, signal });
       const dataPromises = selections.map(getRaster);
-      Promise.all(dataPromises)
-        .then(rasters => {
-          const raster = {
-            data: rasters.map(d => d.data),
-            width: rasters[0]?.width,
-            height: rasters[0]?.height
-          };
-          if (isInterleaved(loader.shape)) {
-            raster.data = raster.data[0];
-            if (raster.data.length === raster.width * raster.height * 3) {
-              raster.format = 'rgba8unorm';
-            }
+      Promise.all(dataPromises).then((rasters) => {
+        const raster = {
+          data: rasters.map((d) => d.data),
+          width: rasters[0]?.width,
+          height: rasters[0]?.height
+        };
+        if (isInterleaved(loader.shape)) {
+          raster.data = raster.data[0];
+          if (raster.data.length === raster.width * raster.height * 3) {
+            raster.format = "rgba8unorm";
           }
-          if (onViewportLoad) {
-            onViewportLoad(raster);
-          }
-          this.setState({ ...raster });
-        })
-        .catch(e => {
-          if (e !== SIGNAL_ABORTED) {
-            throw e;
-          }
-        });
+        }
+        if (onViewportLoad) {
+          onViewportLoad(raster);
+        }
+        this.setState({ ...raster });
+      }).catch((e) => {
+        if (e !== SIGNAL_ABORTED) {
+          throw e;
+        }
+      });
     }
   }
   getPickingInfo({ info, sourceLayer }) {
@@ -719,7 +682,8 @@ const ImageLayer = class extends CompositeLayer {
     const { loader, id } = this.props;
     const { dtype } = loader;
     const { width, height, data } = this.state;
-    if (!(width && height)) return null;
+    if (!(width && height))
+      return null;
     const bounds = [0, height, width, 0];
     if (isInterleaved(loader.shape)) {
       const { photometricInterpretation = 2 } = loader.meta;
@@ -741,7 +705,7 @@ const ImageLayer = class extends CompositeLayer {
     });
   }
 };
-ImageLayer.layerName = 'ImageLayer';
+ImageLayer.layerName = "ImageLayer";
 ImageLayer.defaultProps = defaultProps$6;
 
 function renderSubLayers(props) {
@@ -750,7 +714,7 @@ function renderSubLayers(props) {
     index: { x, y, z }
   } = props.tile;
   const { data, id, loader, maxZoom } = props;
-  if ([left, bottom, right, top].some(v => v < 0) || !data) {
+  if ([left, bottom, right, top].some((v) => v < 0) || !data) {
     return null;
   }
   const base = loader[0];
@@ -783,20 +747,20 @@ function renderSubLayers(props) {
     id: `tile-sub-layer-${bounds}-${id}`,
     tileId: { x, y, z },
     // The auto setting is NEAREST at the highest resolution but LINEAR otherwise.
-    interpolation: z === maxZoom ? 'nearest' : 'linear'
+    interpolation: z === maxZoom ? "nearest" : "linear"
   });
 }
 
 const defaultProps$5 = {
-  pickable: { type: 'boolean', value: true, compare: true },
+  pickable: { type: "boolean", value: true, compare: true },
   coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
-  contrastLimits: { type: 'array', value: [], compare: true },
-  channelsVisible: { type: 'array', value: [], compare: true },
-  renderSubLayers: { type: 'function', value: renderSubLayers, compare: false },
-  dtype: { type: 'string', value: 'Uint16', compare: true },
-  domain: { type: 'array', value: [], compare: true },
-  viewportId: { type: 'string', value: '', compare: true },
-  interpolation: { type: 'number', value: null, compare: true }
+  contrastLimits: { type: "array", value: [], compare: true },
+  channelsVisible: { type: "array", value: [], compare: true },
+  renderSubLayers: { type: "function", value: renderSubLayers, compare: false },
+  dtype: { type: "string", value: "Uint16", compare: true },
+  domain: { type: "array", value: [], compare: true },
+  viewportId: { type: "string", value: "", compare: true },
+  interpolation: { type: "number", value: null, compare: true }
 };
 class MultiscaleImageLayerBase extends TileLayer {
   /**
@@ -809,32 +773,29 @@ class MultiscaleImageLayerBase extends TileLayer {
     if (!this.props.viewportId) {
       super._updateTileset();
     }
-    if (
-      (this.props.viewportId &&
-        this.context.viewport.id === this.props.viewportId) || // I don't know why, but DeckGL doesn't recognize multiple views on the first pass
-      // so we force update on the first pass by checking if there is a viewport in the tileset.
-      !this.state.tileset._viewport
-    ) {
+    if (this.props.viewportId && this.context.viewport.id === this.props.viewportId || // I don't know why, but DeckGL doesn't recognize multiple views on the first pass
+    // so we force update on the first pass by checking if there is a viewport in the tileset.
+    !this.state.tileset._viewport) {
       super._updateTileset();
     }
   }
 }
-MultiscaleImageLayerBase.layerName = 'MultiscaleImageLayerBase';
+MultiscaleImageLayerBase.layerName = "MultiscaleImageLayerBase";
 MultiscaleImageLayerBase.defaultProps = defaultProps$5;
 
 const defaultProps$4 = {
-  pickable: { type: 'boolean', value: true, compare: true },
-  onHover: { type: 'function', value: null, compare: false },
-  contrastLimits: { type: 'array', value: [], compare: true },
-  channelsVisible: { type: 'array', value: [], compare: true },
-  domain: { type: 'array', value: [], compare: true },
-  viewportId: { type: 'string', value: '', compare: true },
-  maxRequests: { type: 'number', value: 10, compare: true },
-  onClick: { type: 'function', value: null, compare: true },
-  refinementStrategy: { type: 'string', value: null, compare: true },
-  excludeBackground: { type: 'boolean', value: false, compare: true },
+  pickable: { type: "boolean", value: true, compare: true },
+  onHover: { type: "function", value: null, compare: false },
+  contrastLimits: { type: "array", value: [], compare: true },
+  channelsVisible: { type: "array", value: [], compare: true },
+  domain: { type: "array", value: [], compare: true },
+  viewportId: { type: "string", value: "", compare: true },
+  maxRequests: { type: "number", value: 10, compare: true },
+  onClick: { type: "function", value: null, compare: true },
+  refinementStrategy: { type: "string", value: null, compare: true },
+  excludeBackground: { type: "boolean", value: false, compare: true },
   extensions: {
-    type: 'array',
+    type: "array",
     value: [new ColorPaletteExtension()],
     compare: true
   }
@@ -860,21 +821,21 @@ const MultiscaleImageLayer = class extends CompositeLayer {
         return null;
       }
       const resolution = Math.round(-z);
-      const getTile = selection => {
+      const getTile = (selection) => {
         const config = { x, y, selection, signal };
         return loader[resolution].getTile(config);
       };
       try {
         const tiles = await Promise.all(selections.map(getTile));
         const tile = {
-          data: tiles.map(d => d.data),
+          data: tiles.map((d) => d.data),
           width: tiles[0].width,
           height: tiles[0].height
         };
         if (isInterleaved(loader[resolution].shape)) {
           tile.data = tile.data[0];
           if (tile.data.length === tile.width * tile.height * 3) {
-            tile.format = 'rgba8unorm';
+            tile.format = "rgba8unorm";
           }
           return tile;
         }
@@ -905,8 +866,7 @@ const MultiscaleImageLayer = class extends CompositeLayer {
       maxZoom: 0,
       // We want a no-overlap caching strategy with an opacity < 1 to prevent
       // multiple rendered sublayers (some of which have been cached) from overlapping
-      refinementStrategy:
-        refinementStrategy || (opacity === 1 ? 'best-available' : 'no-overlap'),
+      refinementStrategy: refinementStrategy || (opacity === 1 ? "best-available" : "no-overlap"),
       // TileLayer checks `changeFlags.updateTriggersChanged.getTileData` to see if tile cache
       // needs to be re-created. We want to trigger this behavior if the loader changes.
       // https://github.com/uber/deck.gl/blob/3f67ea6dfd09a4d74122f93903cb6b819dd88d52/modules/geo-layers/src/tile-layer/tile-layer.js#L50
@@ -916,44 +876,40 @@ const MultiscaleImageLayer = class extends CompositeLayer {
       onTileError: onTileError || loader[0].onTileError
     });
     const lowestResolution = loader[loader.length - 1];
-    const implementsGetRaster =
-      typeof lowestResolution.getRaster === 'function';
+    const implementsGetRaster = typeof lowestResolution.getRaster === "function";
     const layerModelMatrix = modelMatrix ? modelMatrix.clone() : new Matrix4();
-    const baseLayer =
-      implementsGetRaster &&
-      !excludeBackground &&
-      new ImageLayer(this.props, {
-        id: `Background-Image-${id}`,
-        loader: lowestResolution,
-        modelMatrix: layerModelMatrix.scale(2 ** (loader.length - 1)),
-        visible: !viewportId || this.context.viewport.id === viewportId,
-        onHover,
-        onClick,
-        // Background image is nicest when LINEAR in my opinion.
-        interpolation: 'linear',
-        onViewportLoad: null
-      });
+    const baseLayer = implementsGetRaster && !excludeBackground && new ImageLayer(this.props, {
+      id: `Background-Image-${id}`,
+      loader: lowestResolution,
+      modelMatrix: layerModelMatrix.scale(2 ** (loader.length - 1)),
+      visible: !viewportId || this.context.viewport.id === viewportId,
+      onHover,
+      onClick,
+      // Background image is nicest when LINEAR in my opinion.
+      interpolation: "linear",
+      onViewportLoad: null
+    });
     const layers = [baseLayer, tiledLayer];
     return layers;
   }
 };
-MultiscaleImageLayer.layerName = 'MultiscaleImageLayer';
+MultiscaleImageLayer.layerName = "MultiscaleImageLayer";
 MultiscaleImageLayer.defaultProps = defaultProps$4;
 
 const defaultProps$3 = {
-  pickable: { type: 'boolean', value: true, compare: true },
+  pickable: { type: "boolean", value: true, compare: true },
   loader: {
-    type: 'object',
+    type: "object",
     value: {
       getRaster: async () => ({ data: [], height: 0, width: 0 }),
       getRasterSize: () => ({ height: 0, width: 0 }),
-      dtype: '<u2'
+      dtype: "<u2"
     },
     compare: true
   },
-  id: { type: 'string', value: '', compare: true },
+  id: { type: "string", value: "", compare: true },
   boundingBox: {
-    type: 'array',
+    type: "array",
     value: [
       [0, 0],
       [0, 1],
@@ -962,14 +918,14 @@ const defaultProps$3 = {
     ],
     compare: true
   },
-  boundingBoxColor: { type: 'array', value: [255, 0, 0], compare: true },
-  boundingBoxOutlineWidth: { type: 'number', value: 1, compare: true },
-  viewportOutlineColor: { type: 'array', value: [255, 190, 0], compare: true },
-  viewportOutlineWidth: { type: 'number', value: 2, compare: true },
-  overviewScale: { type: 'number', value: 1, compare: true },
-  zoom: { type: 'number', value: 1, compare: true },
+  boundingBoxColor: { type: "array", value: [255, 0, 0], compare: true },
+  boundingBoxOutlineWidth: { type: "number", value: 1, compare: true },
+  viewportOutlineColor: { type: "array", value: [255, 190, 0], compare: true },
+  viewportOutlineWidth: { type: "number", value: 2, compare: true },
+  overviewScale: { type: "number", value: 1, compare: true },
+  zoom: { type: "number", value: 1, compare: true },
   extensions: {
-    type: 'array',
+    type: "array",
     value: [new ColorPaletteExtension()],
     compare: true
   }
@@ -999,7 +955,7 @@ const OverviewLayer = class extends CompositeLayer {
       id: `bounding-box-overview-${id}`,
       coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
       data: [boundingBox],
-      getPolygon: f => f,
+      getPolygon: (f) => f,
       filled: false,
       stroked: true,
       getLineColor: boundingBoxColor,
@@ -1016,7 +972,7 @@ const OverviewLayer = class extends CompositeLayer {
           [0, height * overviewScale]
         ]
       ],
-      getPolygon: f => f,
+      getPolygon: (f) => f,
       filled: false,
       stroked: true,
       getLineColor: viewportOutlineColor,
@@ -1026,21 +982,21 @@ const OverviewLayer = class extends CompositeLayer {
     return layers;
   }
 };
-OverviewLayer.layerName = 'OverviewLayer';
+OverviewLayer.layerName = "OverviewLayer";
 OverviewLayer.defaultProps = defaultProps$3;
 
 const defaultProps$2 = {
-  pickable: { type: 'boolean', value: true, compare: true },
+  pickable: { type: "boolean", value: true, compare: true },
   imageViewState: {
-    type: 'object',
+    type: "object",
     value: { zoom: 0, target: [0, 0, 0], width: 1, height: 1 },
     compare: true
   },
-  unit: { type: 'string', value: '', compare: true },
-  size: { type: 'number', value: 1, compare: true },
-  position: { type: 'string', value: 'bottom-right', compare: true },
-  length: { type: 'number', value: 0.085, compare: true },
-  snap: { type: 'boolean', value: false, compare: true }
+  unit: { type: "string", value: "", compare: true },
+  size: { type: "number", value: 1, compare: true },
+  position: { type: "string", value: "bottom-right", compare: true },
+  length: { type: "number", value: 0.085, compare: true },
+  snap: { type: "boolean", value: false, compare: true }
 };
 const ScaleBarLayer = class extends CompositeLayer {
   renderLayers() {
@@ -1066,30 +1022,28 @@ const ScaleBarLayer = class extends CompositeLayer {
     if (snap) {
       const meterSize = sizeToMeters(size, unit);
       const numUnits = barLength * meterSize;
-      const [snappedOrigUnits, snappedNewUnits, snappedUnitPrefix] =
-        snapValue(numUnits);
+      const [snappedOrigUnits, snappedNewUnits, snappedUnitPrefix] = snapValue(numUnits);
       displayNumber = snappedNewUnits;
       displayUnit = `${snappedUnitPrefix}m`;
-      adjustedBarLength =
-        (snappedOrigUnits / meterSize) * 2 ** imageViewState.zoom;
+      adjustedBarLength = snappedOrigUnits / meterSize * 2 ** imageViewState.zoom;
     }
     let xLeftCoord;
     let yCoord;
-    const isLeft = position.endsWith('-left');
+    const isLeft = position.endsWith("-left");
     switch (position) {
-      case 'bottom-right':
+      case "bottom-right":
         yCoord = height - height * length;
         xLeftCoord = width - adjustedBarLength - width * length;
         break;
-      case 'bottom-left':
+      case "bottom-left":
         yCoord = height - height * length;
         xLeftCoord = width * length;
         break;
-      case 'top-right':
+      case "top-right":
         yCoord = height * length;
         xLeftCoord = width - adjustedBarLength - width * length;
         break;
-      case 'top-left':
+      case "top-left":
         yCoord = height * length;
         xLeftCoord = width * length;
         break;
@@ -1106,8 +1060,8 @@ const ScaleBarLayer = class extends CompositeLayer {
           [isLeft ? xLeftCoord + adjustedBarLength : xRightCoord, yCoord]
         ]
       ],
-      getSourcePosition: d => d[0],
-      getTargetPosition: d => d[1],
+      getSourcePosition: (d) => d[0],
+      getTargetPosition: (d) => d[1],
       getWidth: 2,
       getColor: [220, 220, 220]
     });
@@ -1126,8 +1080,8 @@ const ScaleBarLayer = class extends CompositeLayer {
           ]
         ]
       ],
-      getSourcePosition: d => d[0],
-      getTargetPosition: d => d[1],
+      getSourcePosition: (d) => d[0],
+      getTargetPosition: (d) => d[1],
       getWidth: 2,
       getColor: [220, 220, 220]
     });
@@ -1146,8 +1100,8 @@ const ScaleBarLayer = class extends CompositeLayer {
           ]
         ]
       ],
-      getSourcePosition: d => d[0],
-      getTargetPosition: d => d[1],
+      getSourcePosition: (d) => d[0],
+      getTargetPosition: (d) => d[1],
       getWidth: 2,
       getColor: [220, 220, 220]
     });
@@ -1160,24 +1114,24 @@ const ScaleBarLayer = class extends CompositeLayer {
           position: [isLeft ? xLeftCoord : xRightCoord, yCoord - barHeight * 2]
         }
       ],
-      getTextAnchor: isLeft ? 'start' : 'end',
+      getTextAnchor: isLeft ? "start" : "end",
       getColor: [220, 220, 220, 255],
       getSize: 12,
       fontFamily: DEFAULT_FONT_FAMILY,
-      sizeUnits: 'pixels',
+      sizeUnits: "pixels",
       sizeScale: 1,
       characterSet: [
-        ...displayUnit.split(''),
-        ...range(10).map(i => String(i)),
-        '.',
-        'e',
-        '+'
+        ...displayUnit.split(""),
+        ...range(10).map((i) => String(i)),
+        ".",
+        "e",
+        "+"
       ]
     });
     return [lengthBar, tickBoundsLeft, tickBoundsRight, textLayer];
   }
 };
-ScaleBarLayer.layerName = 'ScaleBarLayer';
+ScaleBarLayer.layerName = "ScaleBarLayer";
 ScaleBarLayer.defaultProps = defaultProps$2;
 
 const fs = `#version 300 es
@@ -1393,7 +1347,7 @@ void main() {
 `;
 
 const channelsModule = {
-  name: 'channel-intensity-module',
+  name: "channel-intensity-module",
   fs: `    float apply_contrast_limits(float intensity, vec2 contrastLimits) {
       float contrastLimitsAppliedToIntensity = (intensity - contrastLimits[0]) / max(0.0005, (contrastLimits[1] - contrastLimits[0]));
       return max(0., contrastLimitsAppliedToIntensity);
@@ -1401,44 +1355,84 @@ const channelsModule = {
   `
 };
 const CUBE_STRIP = [
-  1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0,
-  0, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0
+  1,
+  1,
+  0,
+  0,
+  1,
+  0,
+  1,
+  1,
+  1,
+  0,
+  1,
+  1,
+  0,
+  0,
+  1,
+  0,
+  1,
+  0,
+  0,
+  0,
+  0,
+  1,
+  1,
+  0,
+  1,
+  0,
+  0,
+  1,
+  1,
+  1,
+  1,
+  0,
+  1,
+  0,
+  0,
+  1,
+  1,
+  0,
+  0,
+  0,
+  0,
+  0
 ];
 const NUM_PLANES_DEFAULT = 1;
 const defaultProps$1 = {
   pickable: false,
   coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
-  channelData: { type: 'object', value: {}, compare: true },
-  contrastLimits: { type: 'array', value: [], compare: true },
-  dtype: { type: 'string', value: 'Uint8', compare: true },
-  xSlice: { type: 'array', value: null, compare: true },
-  ySlice: { type: 'array', value: null, compare: true },
-  zSlice: { type: 'array', value: null, compare: true },
-  clippingPlanes: { type: 'array', value: [], compare: true },
-  resolutionMatrix: { type: 'object', value: new Matrix4(), compare: true },
-  channelsVisible: { type: 'array', value: [], compare: true },
+  channelData: { type: "object", value: {}, compare: true },
+  contrastLimits: { type: "array", value: [], compare: true },
+  dtype: { type: "string", value: "Uint8", compare: true },
+  xSlice: { type: "array", value: null, compare: true },
+  ySlice: { type: "array", value: null, compare: true },
+  zSlice: { type: "array", value: null, compare: true },
+  clippingPlanes: { type: "array", value: [], compare: true },
+  resolutionMatrix: { type: "object", value: new Matrix4(), compare: true },
+  channelsVisible: { type: "array", value: [], compare: true },
   extensions: {
-    type: 'array',
+    type: "array",
     value: [new ColorPalette3DExtensions.AdditiveBlendExtension()],
     compare: true
   }
 };
 function getRenderingAttrs() {
-  const values = getDtypeValues('Float32');
+  const values = getDtypeValues("Float32");
   return {
     ...values,
-    sampler: values.sampler.replace('2D', '3D'),
-    cast: data => new Float32Array(data)
+    sampler: values.sampler.replace("2D", "3D"),
+    cast: (data) => new Float32Array(data)
   };
 }
 function getRenderingFromExtensions(extensions) {
   let rendering = {};
-  extensions.forEach(extension => {
+  extensions.forEach((extension) => {
     rendering = extension.rendering;
   });
   if (!rendering._RENDER) {
     throw new Error(
-      'XR3DLayer requires at least one extension to define opts.rendering as an object with _RENDER as a property at the minimum.'
+      "XR3DLayer requires at least one extension to define opts.rendering as an object with _RENDER as a property at the minimum."
     );
   }
   return rendering;
@@ -1451,20 +1445,19 @@ const XR3DLayer = class extends Layer {
       [GL.PACK_ALIGNMENT]: 1
     });
     const programManager = ShaderAssembler.getDefaultShaderAssembler();
-    const processStr =
-      'fs:DECKGL_PROCESS_INTENSITY(inout float intensity, vec2 contrastLimits, int channelIndex)';
+    const processStr = "fs:DECKGL_PROCESS_INTENSITY(inout float intensity, vec2 contrastLimits, int channelIndex)";
     if (!programManager._hookFunctions.includes(processStr)) {
       programManager.addShaderHook(processStr);
     }
   }
   _isHookDefinedByExtensions(hookName) {
     const { extensions } = this.props;
-    return extensions?.some(e => {
+    return extensions?.some((e) => {
       const shaders = e.getShaders();
       if (shaders) {
         const { inject = {}, modules = [] } = shaders;
         const definesInjection = inject[hookName];
-        const moduleDefinesInjection = modules.some(m => m?.inject?.[hookName]);
+        const moduleDefinesInjection = modules.some((m) => m?.inject?.[hookName]);
         return definesInjection || moduleDefinesInjection;
       }
       return false;
@@ -1476,22 +1469,17 @@ const XR3DLayer = class extends Layer {
   getShaders() {
     const { clippingPlanes, extensions } = this.props;
     const { sampler } = getRenderingAttrs();
-    const { _BEFORE_RENDER, _RENDER, _AFTER_RENDER } =
-      getRenderingFromExtensions(extensions);
-    const extensionDefinesDeckglProcessIntensity =
-      this._isHookDefinedByExtensions('fs:DECKGL_PROCESS_INTENSITY');
+    const { _BEFORE_RENDER, _RENDER, _AFTER_RENDER } = getRenderingFromExtensions(extensions);
+    const extensionDefinesDeckglProcessIntensity = this._isHookDefinedByExtensions("fs:DECKGL_PROCESS_INTENSITY");
     const newChannelsModule = { inject: {}, ...channelsModule };
     if (!extensionDefinesDeckglProcessIntensity) {
-      newChannelsModule.inject['fs:DECKGL_PROCESS_INTENSITY'] = `
+      newChannelsModule.inject["fs:DECKGL_PROCESS_INTENSITY"] = `
         intensity = apply_contrast_limits(intensity, contrastLimits);
       `;
     }
     return super.getShaders({
       vs,
-      fs: fs
-        .replace('_BEFORE_RENDER', _BEFORE_RENDER)
-        .replace('_RENDER', _RENDER)
-        .replace('_AFTER_RENDER', _AFTER_RENDER),
+      fs: fs.replace("_BEFORE_RENDER", _BEFORE_RENDER).replace("_RENDER", _RENDER).replace("_AFTER_RENDER", _AFTER_RENDER),
       defines: {
         SAMPLER_TYPE: sampler,
         NUM_PLANES: String(clippingPlanes.length || NUM_PLANES_DEFAULT)
@@ -1505,7 +1493,7 @@ const XR3DLayer = class extends Layer {
   finalizeState() {
     super.finalizeState();
     if (this.state.textures) {
-      Object.values(this.state.textures).forEach(tex => tex?.delete());
+      Object.values(this.state.textures).forEach((tex) => tex?.delete());
     }
   }
   /**
@@ -1513,22 +1501,14 @@ const XR3DLayer = class extends Layer {
    * and loading any textures that need be loading.
    */
   updateState({ props, oldProps, changeFlags }) {
-    if (
-      changeFlags.extensionsChanged ||
-      props.colormap !== oldProps.colormap ||
-      props.renderingMode !== oldProps.renderingMode ||
-      props.clippingPlanes.length !== oldProps.clippingPlanes.length
-    ) {
+    if (changeFlags.extensionsChanged || props.colormap !== oldProps.colormap || props.renderingMode !== oldProps.renderingMode || props.clippingPlanes.length !== oldProps.clippingPlanes.length) {
       const { device } = this.context;
       if (this.state.model) {
         this.state.model.destroy();
       }
       this.setState({ model: this._getModel(device) });
     }
-    if (
-      props.channelData &&
-      props?.channelData?.data !== oldProps?.channelData?.data
-    ) {
+    if (props.channelData && props?.channelData?.data !== oldProps?.channelData?.data) {
       this.loadTexture(props.channelData);
     }
   }
@@ -1542,7 +1522,7 @@ const XR3DLayer = class extends Layer {
     return new Model(gl, {
       ...this.getShaders(),
       geometry: new Geometry({
-        topology: 'triangle-strip',
+        topology: "triangle-strip",
         attributes: {
           positions: new Float32Array(CUBE_STRIP)
         }
@@ -1567,8 +1547,7 @@ const XR3DLayer = class extends Layer {
       clippingPlanes,
       resolutionMatrix
     } = this.props;
-    const { viewMatrix, viewMatrixInverse, projectionMatrix } =
-      this.context.viewport;
+    const { viewMatrix, viewMatrixInverse, projectionMatrix } = this.context.viewport;
     if (textures && model && scaleMatrix) {
       const paddedContrastLimits = padContrastLimits({
         contrastLimits,
@@ -1579,35 +1558,26 @@ const XR3DLayer = class extends Layer {
       const invertedScaleMatrix = scaleMatrix.clone().invert();
       const invertedResolutionMatrix = resolutionMatrix.clone().invert();
       const paddedClippingPlanes = padWithDefault(
-        clippingPlanes.map(p =>
-          p
-            .clone()
-            .transform(invertedScaleMatrix)
-            .transform(invertedResolutionMatrix)
+        clippingPlanes.map(
+          (p) => p.clone().transform(invertedScaleMatrix).transform(invertedResolutionMatrix)
         ),
         new Plane([1, 0, 0]),
         clippingPlanes.length || NUM_PLANES_DEFAULT
       );
-      const normals = paddedClippingPlanes.flatMap(plane => plane.normal);
-      const distances = paddedClippingPlanes.map(plane => plane.distance);
+      const normals = paddedClippingPlanes.flatMap((plane) => plane.normal);
+      const distances = paddedClippingPlanes.map((plane) => plane.distance);
       model.setUniforms(
         {
           ...uniforms,
           contrastLimits: paddedContrastLimits,
           xSlice: new Float32Array(
-            xSlice
-              ? xSlice.map(i => i / scaleMatrix[0] / resolutionMatrix[0])
-              : [0, 1]
+            xSlice ? xSlice.map((i) => i / scaleMatrix[0] / resolutionMatrix[0]) : [0, 1]
           ),
           ySlice: new Float32Array(
-            ySlice
-              ? ySlice.map(i => i / scaleMatrix[5] / resolutionMatrix[5])
-              : [0, 1]
+            ySlice ? ySlice.map((i) => i / scaleMatrix[5] / resolutionMatrix[5]) : [0, 1]
           ),
           zSlice: new Float32Array(
-            zSlice
-              ? zSlice.map(i => i / scaleMatrix[10] / resolutionMatrix[10])
-              : [0, 1]
+            zSlice ? zSlice.map((i) => i / scaleMatrix[10] / resolutionMatrix[10]) : [0, 1]
           ),
           eye_pos: new Float32Array([
             viewMatrixInverse[12],
@@ -1641,20 +1611,18 @@ const XR3DLayer = class extends Layer {
       volume5: null
     };
     if (this.state.textures) {
-      Object.values(this.state.textures).forEach(tex => tex?.delete());
+      Object.values(this.state.textures).forEach((tex) => tex?.delete());
     }
-    if (
-      channelData &&
-      Object.keys(channelData).length > 0 &&
-      channelData.data
-    ) {
+    if (channelData && Object.keys(channelData).length > 0 && channelData.data) {
       const { height, width, depth } = channelData;
       channelData.data.forEach((d, i) => {
         textures[`volume${i}`] = this.dataToTexture(d, width, height, depth);
       }, this);
       for (const key in textures) {
-        if (!textures.volume0) throw new Error('Bad texture state!');
-        if (!textures[key]) textures[key] = textures.volume0;
+        if (!textures.volume0)
+          throw new Error("Bad texture state!");
+        if (!textures[key])
+          textures[key] = textures.volume0;
       }
       this.setState({
         textures,
@@ -1677,34 +1645,35 @@ const XR3DLayer = class extends Layer {
       width,
       height,
       depth,
-      dimension: '3d',
+      dimension: "3d",
       data: attrs.cast?.(data) ?? data,
       format: attrs.format,
       mipmaps: false,
       sampler: {
-        minFilter: 'linear',
-        magFilter: 'linear',
-        addressModeU: 'clamp-to-edge',
-        addressModeV: 'clamp-to-edge',
-        addressModeW: 'clamp-to-edge'
+        minFilter: "linear",
+        magFilter: "linear",
+        addressModeU: "clamp-to-edge",
+        addressModeV: "clamp-to-edge",
+        addressModeW: "clamp-to-edge"
       }
     });
     return texture;
   }
 };
-XR3DLayer.layerName = 'XR3DLayer';
+XR3DLayer.layerName = "XR3DLayer";
 XR3DLayer.defaultProps = defaultProps$1;
 
 async function getVolume({
   source,
   selection,
-  onUpdate = () => {},
+  onUpdate = () => {
+  },
   downsampleDepth = 1,
   signal
 }) {
   const { shape, labels, dtype } = source;
   const { height, width } = getImageSize(source);
-  const depth = shape[labels.indexOf('z')];
+  const depth = shape[labels.indexOf("z")];
   const depthDownsampled = Math.max(1, Math.floor(depth / downsampleDepth));
   const rasterSize = height * width;
   const name = `${dtype}Array`;
@@ -1724,8 +1693,7 @@ async function getVolume({
       onUpdate();
       while (r < rasterSize) {
         const volIndex = z * rasterSize + (rasterSize - r - 1);
-        const rasterIndex =
-          ((width - r - 1) % width) + width * Math.floor(r / width);
+        const rasterIndex = (width - r - 1) % width + width * Math.floor(r / width);
         volumeData[volIndex] = rasterData[rasterIndex];
         r += 1;
       }
@@ -1751,40 +1719,41 @@ const getTextLayer = (text, viewport, id) => {
     ],
     getColor: [220, 220, 220, 255],
     getSize: 25,
-    sizeUnits: 'meters',
+    sizeUnits: "meters",
     sizeScale: 2 ** -viewport.zoom,
-    fontFamily: 'Helvetica'
+    fontFamily: "Helvetica"
   });
 };
 
 const defaultProps = {
   pickable: false,
   coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
-  contrastLimits: { type: 'array', value: [], compare: true },
-  channelsVisible: { type: 'array', value: [], compare: true },
-  selections: { type: 'array', value: [], compare: true },
-  resolution: { type: 'number', value: 0, compare: true },
-  domain: { type: 'array', value: [], compare: true },
+  contrastLimits: { type: "array", value: [], compare: true },
+  channelsVisible: { type: "array", value: [], compare: true },
+  selections: { type: "array", value: [], compare: true },
+  resolution: { type: "number", value: 0, compare: true },
+  domain: { type: "array", value: [], compare: true },
   loader: {
-    type: 'object',
+    type: "object",
     value: [
       {
         getRaster: async () => ({ data: [], height: 0, width: 0 }),
-        dtype: 'Uint16',
+        dtype: "Uint16",
         shape: [1],
-        labels: ['z']
+        labels: ["z"]
       }
     ],
     compare: true
   },
-  xSlice: { type: 'array', value: null, compare: true },
-  ySlice: { type: 'array', value: null, compare: true },
-  zSlice: { type: 'array', value: null, compare: true },
-  clippingPlanes: { type: 'array', value: [], compare: true },
-  onUpdate: { type: 'function', value: () => {}, compare: true },
-  useProgressIndicator: { type: 'boolean', value: true, compare: true },
+  xSlice: { type: "array", value: null, compare: true },
+  ySlice: { type: "array", value: null, compare: true },
+  zSlice: { type: "array", value: null, compare: true },
+  clippingPlanes: { type: "array", value: [], compare: true },
+  onUpdate: { type: "function", value: () => {
+  }, compare: true },
+  useProgressIndicator: { type: "boolean", value: true, compare: true },
   extensions: {
-    type: 'array',
+    type: "array",
     value: [new ColorPalette3DExtensions.AdditiveBlendExtension()],
     compare: true
   }
@@ -1821,9 +1790,7 @@ const VolumeLayer = class extends CompositeLayer {
       } = this.props;
       const source = loader[resolution];
       let progress = 0;
-      const totalRequests =
-        (source.shape[source.labels.indexOf('z')] >> resolution) *
-        selections.length;
+      const totalRequests = (source.shape[source.labels.indexOf("z")] >> resolution) * selections.length;
       const onUpdate = () => {
         progress += 0.5 / totalRequests;
         if (this.props.onUpdate) {
@@ -1834,8 +1801,8 @@ const VolumeLayer = class extends CompositeLayer {
       const abortController = new AbortController();
       this.setState({ abortController });
       const { signal } = abortController;
-      const volumePromises = selections.map(selection =>
-        getVolume({
+      const volumePromises = selections.map(
+        (selection) => getVolume({
           selection,
           source,
           onUpdate,
@@ -1846,12 +1813,12 @@ const VolumeLayer = class extends CompositeLayer {
       const physicalSizeScalingMatrix = getPhysicalSizeScalingMatrix(
         loader[resolution]
       );
-      Promise.all(volumePromises).then(volumes => {
+      Promise.all(volumePromises).then((volumes) => {
         if (onViewportLoad) {
           onViewportLoad(volumes);
         }
         const volume = {
-          data: volumes.map(d => d.data),
+          data: volumes.map((d) => d.data),
           width: volumes[0]?.width,
           height: volumes[0]?.height,
           depth: volumes[0]?.depth
@@ -1900,19 +1867,7 @@ const VolumeLayer = class extends CompositeLayer {
     });
   }
 };
-VolumeLayer.layerName = 'VolumeLayer';
+VolumeLayer.layerName = "VolumeLayer";
 VolumeLayer.defaultProps = defaultProps;
 
-export {
-  BitmapLayer,
-  ImageLayer,
-  MultiscaleImageLayer,
-  OverviewLayer,
-  ScaleBarLayer,
-  VolumeLayer,
-  XR3DLayer,
-  XRLayer,
-  getPhysicalSizeScalingMatrix,
-  makeBoundingBox,
-  padWithDefault
-};
+export { BitmapLayer, ImageLayer, MultiscaleImageLayer, OverviewLayer, ScaleBarLayer, VolumeLayer, XR3DLayer, XRLayer, getPhysicalSizeScalingMatrix, makeBoundingBox, padWithDefault };

@@ -22,12 +22,14 @@ document.getElementById('filter-input').addEventListener('keyup', function (e) {
     }
   }
 
-  var match = () => true;
+  var match = function () {
+    return true;
+  };
 
   var value = this.value.toLowerCase();
 
   if (!value.match(/^\s*$/)) {
-    match = element => {
+    match = function (element) {
       var html = element.firstChild.innerHTML;
       return html && html.toLowerCase().indexOf(value) !== -1;
     };
@@ -112,12 +114,16 @@ var cw_without_sb = split_left.clientWidth;
 split_left.style.overflow = '';
 
 Split(['#split-left', '#split-right'], {
-  elementStyle: (dimension, size, gutterSize) => ({
-    'flex-basis': 'calc(' + size + '% - ' + gutterSize + 'px)'
-  }),
-  gutterStyle: (dimension, gutterSize) => ({
-    'flex-basis': gutterSize + 'px'
-  }),
+  elementStyle: function (dimension, size, gutterSize) {
+    return {
+      'flex-basis': 'calc(' + size + '% - ' + gutterSize + 'px)'
+    };
+  },
+  gutterStyle: function (dimension, gutterSize) {
+    return {
+      'flex-basis': gutterSize + 'px'
+    };
+  },
   gutterSize: 20,
   sizes: [33, 67]
 });
@@ -146,9 +152,9 @@ function loadState(ev) {
   }
 }
 
-window.addEventListener('load', () => {
+window.addEventListener('load', function () {
   // Restore after Firefox scrolls to hash.
-  setTimeout(() => {
+  setTimeout(function () {
     loadState();
     // Update with initial scroll position.
     updateState();

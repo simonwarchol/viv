@@ -1,9 +1,5 @@
 import { LayerExtension } from '@deck.gl/core';
-import {
-  DEFAULT_COLOR_OFF,
-  MAX_CHANNELS,
-  MAX_COLOR_INTENSITY
-} from '@vivjs/constants';
+import { MAX_COLOR_INTENSITY, DEFAULT_COLOR_OFF, MAX_CHANNELS } from '@vivjs/constants';
 
 const apply_transparent_color = `vec4 apply_transparent_color(vec3 color, vec3 transparentColor, bool useTransparentColor, float opacity){
   return vec4(color, (color == transparentColor && useTransparentColor) ? 0. : opacity);
@@ -1412,7 +1408,7 @@ vec4 colormap(float intensity) {
   return vec4(apply_transparent_color(apply_cmap(min(1.,intensity)).xyz, apply_cmap(0.).xyz, useTransparentColor, opacity));
 }`,
     inject: {
-      'fs:DECKGL_MUTATE_COLOR': `  float intensityCombo = 0.;
+      "fs:DECKGL_MUTATE_COLOR": `  float intensityCombo = 0.;
   intensityCombo += max(0.,intensity0);
   intensityCombo += max(0.,intensity1);
   intensityCombo += max(0.,intensity2);
@@ -1424,9 +1420,9 @@ vec4 colormap(float intensity) {
   };
 }
 const defaultProps$4 = {
-  colormap: { type: 'string', value: 'viridis', compare: true },
-  opacity: { type: 'number', value: 1, compare: true },
-  useTransparentColor: { type: 'boolean', value: false, compare: true }
+  colormap: { type: "string", value: "viridis", compare: true },
+  opacity: { type: "number", value: 1, compare: true },
+  useTransparentColor: { type: "boolean", value: false, compare: true }
 };
 const AdditiveColormapExtension = class extends LayerExtension {
   getShaders() {
@@ -1459,7 +1455,7 @@ const AdditiveColormapExtension = class extends LayerExtension {
     this.state.model?.setUniforms(uniforms);
   }
 };
-AdditiveColormapExtension.extensionName = 'AdditiveColormapExtension';
+AdditiveColormapExtension.extensionName = "AdditiveColormapExtension";
 AdditiveColormapExtension.defaultProps = defaultProps$4;
 
 function padWithDefault(arr, defaultValue, padWidth) {
@@ -1488,15 +1484,13 @@ const COLOR_PALETTE = [
 ];
 function getDefaultPalette(n) {
   if (n > COLOR_PALETTE.length) {
-    throw new Error('Too many colors');
+    throw new Error("Too many colors");
   }
   return COLOR_PALETTE.slice(0, n);
 }
 function padColors({ colors, channelsVisible }) {
-  const newColors = colors.map((color, i) =>
-    channelsVisible[i]
-      ? color.map(c => c / MAX_COLOR_INTENSITY)
-      : DEFAULT_COLOR_OFF
+  const newColors = colors.map(
+    (color, i) => channelsVisible[i] ? color.map((c) => c / MAX_COLOR_INTENSITY) : DEFAULT_COLOR_OFF
   );
   const padSize = MAX_CHANNELS - newColors.length;
   const paddedColors = padWithDefault(
@@ -1534,18 +1528,18 @@ mutate_color(rgb, intensity0, intensity1, intensity2, intensity3, intensity4, in
 rgba = apply_opacity(rgb);
 `;
 const colorPalette = {
-  name: 'color-palette-module',
+  name: "color-palette-module",
   fs: fs$1,
   inject: {
-    'fs:DECKGL_MUTATE_COLOR': DECKGL_MUTATE_COLOR
+    "fs:DECKGL_MUTATE_COLOR": DECKGL_MUTATE_COLOR
   }
 };
 
 const defaultProps$3 = {
-  colors: { type: 'array', value: null, compare: true },
-  opacity: { type: 'number', value: 1, compare: true },
-  transparentColor: { type: 'array', value: null, compare: true },
-  useTransparentColor: { type: 'boolean', value: false, compare: true }
+  colors: { type: "array", value: null, compare: true },
+  opacity: { type: "number", value: 1, compare: true },
+  transparentColor: { type: "array", value: null, compare: true },
+  useTransparentColor: { type: "boolean", value: false, compare: true }
 };
 const ColorPaletteExtension = class extends LayerExtension {
   getShaders() {
@@ -1569,13 +1563,13 @@ const ColorPaletteExtension = class extends LayerExtension {
     const uniforms = {
       colors: paddedColors,
       opacity,
-      transparentColor: (transparentColor || [0, 0, 0]).map(i => i / 255),
+      transparentColor: (transparentColor || [0, 0, 0]).map((i) => i / 255),
       useTransparentColor: Boolean(useTransparentColor)
     };
     this.state.model?.setUniforms(uniforms);
   }
 };
-ColorPaletteExtension.extensionName = 'ColorPaletteExtension';
+ColorPaletteExtension.extensionName = "ColorPaletteExtension";
 ColorPaletteExtension.defaultProps = defaultProps$3;
 
 const fs = `// lens bounds for ellipse
@@ -1639,15 +1633,15 @@ void mutate_color(inout vec3 rgb, float intensity0, float intensity1, float inte
 }
 `;
 const lens = {
-  name: 'lens-module',
+  name: "lens-module",
   fs,
   inject: {
-    'fs:DECKGL_MUTATE_COLOR': `
+    "fs:DECKGL_MUTATE_COLOR": `
    vec3 rgb = rgba.rgb;
    mutate_color(rgb, intensity0, intensity1, intensity2, intensity3, intensity4, intensity5, vTexCoord);
    rgba = vec4(rgb, 1.);
   `,
-    'fs:#main-end': `
+    "fs:#main-end": `
       bool isFragOnLensBounds = frag_on_lens_bounds(vTexCoord);
       fragColor = (lensEnabled && isFragOnLensBounds) ? vec4(lensBorderColor, 1.) : fragColor;
   `
@@ -1655,12 +1649,12 @@ const lens = {
 };
 
 const defaultProps$2 = {
-  lensEnabled: { type: 'boolean', value: false, compare: true },
-  lensSelection: { type: 'number', value: 0, compare: true },
-  lensRadius: { type: 'number', value: 100, compare: true },
-  lensBorderColor: { type: 'array', value: [255, 255, 255], compare: true },
-  lensBorderRadius: { type: 'number', value: 0.02, compare: true },
-  colors: { type: 'array', value: null, compare: true }
+  lensEnabled: { type: "boolean", value: false, compare: true },
+  lensSelection: { type: "number", value: 0, compare: true },
+  lensRadius: { type: "number", value: 100, compare: true },
+  lensBorderColor: { type: "array", value: [255, 255, 255], compare: true },
+  lensBorderRadius: { type: "number", value: 0.02, compare: true },
+  colors: { type: "array", value: null, compare: true }
 };
 const LensExtension = class extends LayerExtension {
   getShaders() {
@@ -1683,7 +1677,7 @@ const LensExtension = class extends LayerExtension {
       }
       const { mousePosition } = layer.context;
       const layerView = layer.context.deck.viewManager.views.filter(
-        view => view.id === viewportId
+        (view) => view.id === viewportId
       )[0];
       const viewState = layer.context.deck.viewManager.viewState[viewportId];
       const viewport = layerView.makeViewport({
@@ -1733,8 +1727,7 @@ const LensExtension = class extends LayerExtension {
       colors,
       channelsVisible
     } = this.props;
-    const [leftMouseBound, bottomMouseBound, rightMouseBound, topMouseBound] =
-      unprojectLensBounds;
+    const [leftMouseBound, bottomMouseBound, rightMouseBound, topMouseBound] = unprojectLensBounds;
     const [left, bottom, right, top] = bounds;
     const leftMouseBoundScaled = (leftMouseBound - left) / (right - left);
     const bottomMouseBoundScaled = (bottomMouseBound - top) / (bottom - top);
@@ -1769,7 +1762,7 @@ const LensExtension = class extends LayerExtension {
     }
   }
 };
-LensExtension.extensionName = 'LensExtension';
+LensExtension.extensionName = "LensExtension";
 LensExtension.defaultProps = defaultProps$2;
 
 function colormapModuleFactory3D(name, apply_cmap) {
@@ -1784,7 +1777,7 @@ vec4 colormap(float intensity, float opacity) {
   };
 }
 const defaultProps$1 = {
-  colormap: { type: 'string', value: 'viridis', compare: true }
+  colormap: { type: "string", value: "viridis", compare: true }
 };
 const BaseExtension$1 = class BaseExtension extends LayerExtension {
   constructor(...args) {
@@ -1810,10 +1803,10 @@ const BaseExtension$1 = class BaseExtension extends LayerExtension {
     }
   }
 };
-BaseExtension$1.extensionName = 'BaseExtension';
+BaseExtension$1.extensionName = "BaseExtension";
 BaseExtension$1.defaultProps = defaultProps$1;
 
-const _BEFORE_RENDER$5 = '';
+const _BEFORE_RENDER$5 = "";
 const _RENDER$5 = `  float intensityArray[6] = float[6](intensityValue0, intensityValue1, intensityValue2, intensityValue3, intensityValue4, intensityValue5);
   float total = 0.0;
 
@@ -1834,18 +1827,14 @@ const _RENDER$5 = `  float intensityArray[6] = float[6](intensityValue0, intensi
   }
   p += ray_dir * dt;
 `;
-const _AFTER_RENDER$5 = '';
+const _AFTER_RENDER$5 = "";
 const AdditiveBlendExtension$1 = class AdditiveBlendExtension extends BaseExtension$1 {
   constructor(args) {
     super(args);
-    this.rendering = {
-      _BEFORE_RENDER: _BEFORE_RENDER$5,
-      _RENDER: _RENDER$5,
-      _AFTER_RENDER: _AFTER_RENDER$5
-    };
+    this.rendering = { _BEFORE_RENDER: _BEFORE_RENDER$5, _RENDER: _RENDER$5, _AFTER_RENDER: _AFTER_RENDER$5 };
   }
 };
-AdditiveBlendExtension$1.extensionName = 'AdditiveBlendExtension';
+AdditiveBlendExtension$1.extensionName = "AdditiveBlendExtension";
 
 const _BEFORE_RENDER$4 = `  float maxVals[6] = float[6](-1.0, -1.0, -1.0, -1.0, -1.0, -1.0);
 `;
@@ -1868,15 +1857,10 @@ const _AFTER_RENDER$4 = `  float total = 0.0;
 const MaximumIntensityProjectionExtension$1 = class MaximumIntensityProjectionExtension extends BaseExtension$1 {
   constructor(args) {
     super(args);
-    this.rendering = {
-      _BEFORE_RENDER: _BEFORE_RENDER$4,
-      _RENDER: _RENDER$4,
-      _AFTER_RENDER: _AFTER_RENDER$4
-    };
+    this.rendering = { _BEFORE_RENDER: _BEFORE_RENDER$4, _RENDER: _RENDER$4, _AFTER_RENDER: _AFTER_RENDER$4 };
   }
 };
-MaximumIntensityProjectionExtension$1.extensionName =
-  'MaximumIntensityProjectionExtension';
+MaximumIntensityProjectionExtension$1.extensionName = "MaximumIntensityProjectionExtension";
 
 const _BEFORE_RENDER$3 = `  float minVals[6] = float[6](1. / 0., 1. / 0., 1. / 0., 1. / 0., 1. / 0., 1. / 0.);
 `;
@@ -1899,15 +1883,10 @@ const _AFTER_RENDER$3 = `  float total = 0.0;
 const MinimumIntensityProjectionExtension$1 = class MinimumIntensityProjectionExtension extends BaseExtension$1 {
   constructor(args) {
     super(args);
-    this.rendering = {
-      _BEFORE_RENDER: _BEFORE_RENDER$3,
-      _RENDER: _RENDER$3,
-      _AFTER_RENDER: _AFTER_RENDER$3
-    };
+    this.rendering = { _BEFORE_RENDER: _BEFORE_RENDER$3, _RENDER: _RENDER$3, _AFTER_RENDER: _AFTER_RENDER$3 };
   }
 };
-MinimumIntensityProjectionExtension$1.extensionName =
-  'MinimumIntensityProjectionExtension';
+MinimumIntensityProjectionExtension$1.extensionName = "MinimumIntensityProjectionExtension";
 
 const AdditiveColormap3DExtensions = {
   BaseExtension: BaseExtension$1,
@@ -1917,7 +1896,7 @@ const AdditiveColormap3DExtensions = {
 };
 
 const defaultProps = {
-  colors: { type: 'array', value: null, compare: true }
+  colors: { type: "array", value: null, compare: true }
 };
 const BaseExtension = class extends LayerExtension {
   constructor(...args) {
@@ -1936,10 +1915,10 @@ const BaseExtension = class extends LayerExtension {
     this.state.model?.setUniforms(uniforms);
   }
 };
-BaseExtension.extensionName = 'BaseExtension';
+BaseExtension.extensionName = "BaseExtension";
 BaseExtension.defaultProps = defaultProps;
 
-const _BEFORE_RENDER$2 = '';
+const _BEFORE_RENDER$2 = "";
 const _RENDER$2 = `  vec3 rgbCombo = vec3(0.0);
   vec3 hsvCombo = vec3(0.0);
   float intensityArray[6] = float[6](intensityValue0, intensityValue1, intensityValue2, intensityValue3, intensityValue4, intensityValue5);
@@ -1960,18 +1939,14 @@ const _RENDER$2 = `  vec3 rgbCombo = vec3(0.0);
     break;
   }
 `;
-const _AFTER_RENDER$2 = '';
+const _AFTER_RENDER$2 = "";
 const AdditiveBlendExtension = class extends BaseExtension {
   constructor(args) {
     super(args);
-    this.rendering = {
-      _BEFORE_RENDER: _BEFORE_RENDER$2,
-      _RENDER: _RENDER$2,
-      _AFTER_RENDER: _AFTER_RENDER$2
-    };
+    this.rendering = { _BEFORE_RENDER: _BEFORE_RENDER$2, _RENDER: _RENDER$2, _AFTER_RENDER: _AFTER_RENDER$2 };
   }
 };
-AdditiveBlendExtension.extensionName = 'AdditiveBlendExtension';
+AdditiveBlendExtension.extensionName = "AdditiveBlendExtension";
 
 const _BEFORE_RENDER$1 = `  float maxVals[6] = float[6](-1.0, -1.0, -1.0, -1.0, -1.0, -1.0);
 `;
@@ -1992,15 +1967,10 @@ const _AFTER_RENDER$1 = `  vec3 rgbCombo = vec3(0.0);
 const MaximumIntensityProjectionExtension = class extends BaseExtension {
   constructor(args) {
     super(args);
-    this.rendering = {
-      _BEFORE_RENDER: _BEFORE_RENDER$1,
-      _RENDER: _RENDER$1,
-      _AFTER_RENDER: _AFTER_RENDER$1
-    };
+    this.rendering = { _BEFORE_RENDER: _BEFORE_RENDER$1, _RENDER: _RENDER$1, _AFTER_RENDER: _AFTER_RENDER$1 };
   }
 };
-MaximumIntensityProjectionExtension.extensionName =
-  'MaximumIntensityProjectionExtension';
+MaximumIntensityProjectionExtension.extensionName = "MaximumIntensityProjectionExtension";
 
 const _BEFORE_RENDER = `  float minVals[6] = float[6](1. / 0., 1. / 0., 1. / 0., 1. / 0., 1. / 0., 1. / 0.);
 `;
@@ -2024,8 +1994,7 @@ const MinimumIntensityProjectionExtension = class extends BaseExtension {
     this.rendering = { _BEFORE_RENDER, _RENDER, _AFTER_RENDER };
   }
 };
-MinimumIntensityProjectionExtension.extensionName =
-  'MinimumIntensityProjectionExtension';
+MinimumIntensityProjectionExtension.extensionName = "MinimumIntensityProjectionExtension";
 
 const ColorPalette3DExtensions = {
   BaseExtension,
@@ -2034,10 +2003,4 @@ const ColorPalette3DExtensions = {
   MinimumIntensityProjectionExtension
 };
 
-export {
-  AdditiveColormap3DExtensions,
-  AdditiveColormapExtension,
-  ColorPalette3DExtensions,
-  ColorPaletteExtension,
-  LensExtension
-};
+export { AdditiveColormap3DExtensions, AdditiveColormapExtension, ColorPalette3DExtensions, ColorPaletteExtension, LensExtension };

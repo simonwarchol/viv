@@ -1,15 +1,15 @@
 type viewStateChangeProps = {
-  viewId: string;
-  viewState: object;
-  oldViewState: object;
+    viewId: string;
+    viewState: object;
+    oldViewState: object;
 };
 type ViewStateChange = (args: viewStateChangeProps) => any;
 type Hover = (info: Object, event: Object) => any;
 type HandleValue = (valueArray: Array<number>) => any;
 type HandleCoordinate = (coordnate: Object) => any;
 type HoverHooks = {
-  handleValue: HandleValue;
-  handleCoordinate: HandleCoordinate;
+    handleValue: HandleValue;
+    handleCoordinate: HandleCoordinate;
 };
 /**
  * This component wraps the DeckGL component.
@@ -26,14 +26,14 @@ type HoverHooks = {
  * @param {Object} [props.deckProps] Additional options used when creating the DeckGL component.  See [the deck.gl docs.](https://deck.gl/docs/api-reference/core/deck#initialization-settings).  `layerFilter`, `layers`, `onViewStateChange`, `views`, `viewState`, `useDevicePixels`, and `getCursor` are already set.
  */
 declare function VivViewer(props: {
-  layerProps: any[];
-  randomize?: boolean | undefined;
-  views: Array<any>;
-  viewStates: Array<object>;
-  onViewStateChange?: ViewStateChange | undefined;
-  onHover?: Hover | undefined;
-  hoverHooks?: HoverHooks | undefined;
-  deckProps?: Object | undefined;
+    layerProps: any[];
+    randomize?: boolean | undefined;
+    views: Array<any>;
+    viewStates: Array<object>;
+    onViewStateChange?: ViewStateChange | undefined;
+    onHover?: Hover | undefined;
+    hoverHooks?: HoverHooks | undefined;
+    deckProps?: Object | undefined;
 }): any;
 
 /**
@@ -74,31 +74,31 @@ declare function VivViewer(props: {
  * @param {Object} [props.deckProps] Additional options used when creating the DeckGL component.  See [the deck.gl docs.](https://deck.gl/docs/api-reference/core/deck#initialization-settings).  `layerFilter`, `layers`, `onViewStateChange`, `views`, `viewState`, `useDevicePixels`, and `getCursor` are already set.
  */
 declare function PictureInPictureViewer(props: {
-  contrastLimits: any[];
-  colors: any[];
-  channelsVisible: any[];
-  colormap?: string | undefined;
-  loader: any[];
-  selections: any[];
-  overview: Object;
-  overviewOn: boolean;
-  hoverHooks?: HoverHooks | undefined;
-  viewStates?: any[] | undefined;
-  height: number;
-  width: number;
-  extensions?: any[] | undefined;
-  clickCenter?: boolean | undefined;
-  lensEnabled?: boolean | undefined;
-  lensSelection?: number | undefined;
-  lensRadius?: number | undefined;
-  lensBorderColor?: any[] | undefined;
-  lensBorderRadius?: number | undefined;
-  transparentColor?: any[] | undefined;
-  snapScaleBar?: boolean | undefined;
-  onViewStateChange?: ViewStateChange | undefined;
-  onHover?: Hover | undefined;
-  onViewportLoad?: Function | undefined;
-  deckProps?: Object | undefined;
+    contrastLimits: any[];
+    colors: any[];
+    channelsVisible: any[];
+    colormap?: string | undefined;
+    loader: any[];
+    selections: any[];
+    overview: Object;
+    overviewOn: boolean;
+    hoverHooks?: HoverHooks | undefined;
+    viewStates?: any[] | undefined;
+    height: number;
+    width: number;
+    extensions?: any[] | undefined;
+    clickCenter?: boolean | undefined;
+    lensEnabled?: boolean | undefined;
+    lensSelection?: number | undefined;
+    lensRadius?: number | undefined;
+    lensBorderColor?: any[] | undefined;
+    lensBorderRadius?: number | undefined;
+    transparentColor?: any[] | undefined;
+    snapScaleBar?: boolean | undefined;
+    onViewStateChange?: ViewStateChange | undefined;
+    onHover?: Hover | undefined;
+    onViewportLoad?: Function | undefined;
+    deckProps?: Object | undefined;
 }): any;
 
 /**
@@ -134,28 +134,28 @@ declare function PictureInPictureViewer(props: {
  * @param {Object} [props.deckProps] Additional options used when creating the DeckGL component.  See [the deck.gl docs.](https://deck.gl/docs/api-reference/core/deck#initialization-settings).  `layerFilter`, `layers`, `onViewStateChange`, `views`, `viewState`, `useDevicePixels`, and `getCursor` are already set.
  */
 declare function SideBySideViewer(props: {
-  contrastLimits: any[];
-  colors: any[];
-  channelsVisible: any[];
-  colormap?: string | undefined;
-  loader: any[];
-  selections: any[];
-  zoomLock: boolean;
-  panLock: boolean;
-  viewStates?: any[] | undefined;
-  height: number;
-  width: number;
-  extensions?: any[] | undefined;
-  lensEnabled?: boolean | undefined;
-  lensSelection?: number | undefined;
-  lensBorderColor?: any[] | undefined;
-  lensBorderRadius?: number | undefined;
-  lensRadius?: number | undefined;
-  transparentColor?: any[] | undefined;
-  snapScaleBar?: boolean | undefined;
-  onViewStateChange?: ViewStateChange | undefined;
-  onHover?: Hover | undefined;
-  deckProps?: Object | undefined;
+    contrastLimits: any[];
+    colors: any[];
+    channelsVisible: any[];
+    colormap?: string | undefined;
+    loader: any[];
+    selections: any[];
+    zoomLock: boolean;
+    panLock: boolean;
+    viewStates?: any[] | undefined;
+    height: number;
+    width: number;
+    extensions?: any[] | undefined;
+    lensEnabled?: boolean | undefined;
+    lensSelection?: number | undefined;
+    lensBorderColor?: any[] | undefined;
+    lensBorderRadius?: number | undefined;
+    lensRadius?: number | undefined;
+    transparentColor?: any[] | undefined;
+    snapScaleBar?: boolean | undefined;
+    onViewStateChange?: ViewStateChange | undefined;
+    onHover?: Hover | undefined;
+    deckProps?: Object | undefined;
 }): any;
 
 /**
@@ -183,24 +183,24 @@ declare function SideBySideViewer(props: {
  * @param {Array=} extensions [deck.gl extensions](https://deck.gl/docs/developer-guide/custom-layers/layer-extensions) to add to the layers - default is AdditiveBlendExtension from ColorPalette3DExtensions.
  */
 declare function VolumeViewer(props: {
-  contrastLimits: any[];
-  colors?: any[] | undefined;
-  channelsVisible: any[];
-  colormap?: string | undefined;
-  loader: any[];
-  selections: any[];
-  resolution?: any[] | undefined;
-  onViewStateChange?: ViewStateChange | undefined;
-  modelMatrix?: Object | undefined;
-  xSlice?: any[] | undefined;
-  ySlice?: any[] | undefined;
-  zSlice?: any[] | undefined;
-  onViewportLoad?: Function | undefined;
-  viewStates?: any[] | undefined;
-  height: number;
-  width: number;
-  clippingPlanes?: Object[] | undefined;
-  useFixedAxis?: boolean | undefined;
+    contrastLimits: any[];
+    colors?: any[] | undefined;
+    channelsVisible: any[];
+    colormap?: string | undefined;
+    loader: any[];
+    selections: any[];
+    resolution?: any[] | undefined;
+    onViewStateChange?: ViewStateChange | undefined;
+    modelMatrix?: Object | undefined;
+    xSlice?: any[] | undefined;
+    ySlice?: any[] | undefined;
+    zSlice?: any[] | undefined;
+    onViewportLoad?: Function | undefined;
+    viewStates?: any[] | undefined;
+    height: number;
+    width: number;
+    clippingPlanes?: Object[] | undefined;
+    useFixedAxis?: boolean | undefined;
 }): any;
 
 export { PictureInPictureViewer, SideBySideViewer, VivViewer, VolumeViewer };

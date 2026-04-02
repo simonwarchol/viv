@@ -1,186 +1,143 @@
-import {
-  COORDINATE_SYSTEM,
-  CompositeLayer,
-  Controller,
-  Layer,
-  LayerExtension,
-  OrbitView,
-  OrthographicView,
-  picking,
-  project32
-} from '@deck.gl/core';
-import { TileLayer } from '@deck.gl/geo-layers';
-import {
-  BitmapLayer as BitmapLayer$1,
-  LineLayer,
-  PolygonLayer,
-  TextLayer
-} from '@deck.gl/layers';
-import DeckGL from '@deck.gl/react';
+import { LayerExtension, COORDINATE_SYSTEM, CompositeLayer, Layer, project32, picking, OrthographicView, OrbitView, Controller } from '@deck.gl/core';
 import { GL } from '@luma.gl/constants';
-import { Geometry, Model } from '@luma.gl/engine';
-import { ShaderAssembler } from '@luma.gl/shadertools';
 import { Matrix4 } from '@math.gl/core';
-import { Plane } from '@math.gl/culling';
-import equal from 'fast-deep-equal';
-import {
-  BaseDecoder,
-  GeoTIFFImage,
-  addDecoder,
-  fromBlob,
-  fromFile,
-  fromUrl
-} from 'geotiff';
+import { addDecoder, BaseDecoder, fromBlob, fromFile, fromUrl, GeoTIFFImage } from 'geotiff';
 import { decompress } from 'lzw-tiff-decoder';
 import quickselect from 'quickselect';
-import * as React from 'react';
+import * as z from 'zod';
 import * as zarr from 'zarrita';
 import { FetchStore } from 'zarrita';
-import * as z from 'zod';
+import { BitmapLayer as BitmapLayer$1, PolygonLayer, LineLayer, TextLayer } from '@deck.gl/layers';
+import { Model, Geometry } from '@luma.gl/engine';
+import { ShaderAssembler } from '@luma.gl/shadertools';
+import { TileLayer } from '@deck.gl/geo-layers';
+import { Plane } from '@math.gl/culling';
+import DeckGL from '@deck.gl/react';
+import equal from 'fast-deep-equal';
+import * as React from 'react';
 
 const MAX_COLOR_INTENSITY = 255;
 const DEFAULT_COLOR_OFF = [0, 0, 0];
 const MAX_CHANNELS = 6;
-const DEFAULT_FONT_FAMILY =
-  "-apple-system, 'Helvetica Neue', Arial, sans-serif";
+const DEFAULT_FONT_FAMILY = "-apple-system, 'Helvetica Neue', Arial, sans-serif";
 const DTYPE_VALUES = {
   Uint8: {
-    format: 'r8uint',
+    format: "r8uint",
     dataFormat: GL.RED_INTEGER,
     type: GL.UNSIGNED_BYTE,
     max: 2 ** 8 - 1,
-    sampler: 'usampler2D'
+    sampler: "usampler2D"
   },
   Uint16: {
-    format: 'r16uint',
+    format: "r16uint",
     dataFormat: GL.RED_INTEGER,
     type: GL.UNSIGNED_SHORT,
     max: 2 ** 16 - 1,
-    sampler: 'usampler2D'
+    sampler: "usampler2D"
   },
   Uint32: {
-    format: 'r32uint',
+    format: "r32uint",
     dataFormat: GL.RED_INTEGER,
     type: GL.UNSIGNED_INT,
     max: 2 ** 32 - 1,
-    sampler: 'usampler2D'
+    sampler: "usampler2D"
   },
   Float32: {
-    format: 'r32float',
+    format: "r32float",
     dataFormat: GL.RED,
     type: GL.FLOAT,
     // Not sure what to do about this one - a good use case for channel stats, I suppose:
     // https://en.wikipedia.org/wiki/Single-precision_floating-point_format.
     max: 3.4 * 10 ** 38,
-    sampler: 'sampler2D'
+    sampler: "sampler2D"
   },
   Int8: {
-    format: 'r8sint',
+    format: "r8sint",
     dataFormat: GL.RED_INTEGER,
     type: GL.BYTE,
     max: 2 ** (8 - 1) - 1,
-    sampler: 'isampler2D'
+    sampler: "isampler2D"
   },
   Int16: {
-    format: 'r16sint',
+    format: "r16sint",
     dataFormat: GL.RED_INTEGER,
     type: GL.SHORT,
     max: 2 ** (16 - 1) - 1,
-    sampler: 'isampler2D'
+    sampler: "isampler2D"
   },
   Int32: {
-    format: 'r32sint',
+    format: "r32sint",
     dataFormat: GL.RED_INTEGER,
     type: GL.INT,
     max: 2 ** (32 - 1) - 1,
-    sampler: 'isampler2D'
+    sampler: "isampler2D"
   },
   // Cast Float64 as 32 bit float point so it can be rendered.
   Float64: {
-    format: 'r32float',
+    format: "r32float",
     dataFormat: GL.RED,
     type: GL.FLOAT,
     // Not sure what to do about this one - a good use case for channel stats, I suppose:
     // https://en.wikipedia.org/wiki/Single-precision_floating-point_format.
     max: 3.4 * 10 ** 38,
-    sampler: 'sampler2D',
-    cast: data => new Float32Array(data)
+    sampler: "sampler2D",
+    cast: (data) => new Float32Array(data)
   }
 };
 const COLORMAPS = [
-  'jet',
-  'hsv',
-  'hot',
-  'cool',
-  'spring',
-  'summer',
-  'autumn',
-  'winter',
-  'bone',
-  'copper',
-  'greys',
-  'yignbu',
-  'greens',
-  'yiorrd',
-  'bluered',
-  'rdbu',
-  'picnic',
-  'rainbow',
-  'portland',
-  'blackbody',
-  'earth',
-  'electric',
-  'alpha',
-  'viridis',
-  'inferno',
-  'magma',
-  'plasma',
-  'warm',
-  'rainbow-soft',
-  'bathymetry',
-  'cdom',
-  'chlorophyll',
-  'density',
-  'freesurface-blue',
-  'freesurface-red',
-  'oxygen',
-  'par',
-  'phase',
-  'salinity',
-  'temperature',
-  'turbidity',
-  'velocity-blue',
-  'velocity-green',
-  'cubehelix'
+  "jet",
+  "hsv",
+  "hot",
+  "cool",
+  "spring",
+  "summer",
+  "autumn",
+  "winter",
+  "bone",
+  "copper",
+  "greys",
+  "yignbu",
+  "greens",
+  "yiorrd",
+  "bluered",
+  "rdbu",
+  "picnic",
+  "rainbow",
+  "portland",
+  "blackbody",
+  "earth",
+  "electric",
+  "alpha",
+  "viridis",
+  "inferno",
+  "magma",
+  "plasma",
+  "warm",
+  "rainbow-soft",
+  "bathymetry",
+  "cdom",
+  "chlorophyll",
+  "density",
+  "freesurface-blue",
+  "freesurface-red",
+  "oxygen",
+  "par",
+  "phase",
+  "salinity",
+  "temperature",
+  "turbidity",
+  "velocity-blue",
+  "velocity-green",
+  "cubehelix"
 ];
-var RENDERING_MODES = /* @__PURE__ */ (RENDERING_MODES2 => {
-  RENDERING_MODES2['MAX_INTENSITY_PROJECTION'] = 'Maximum Intensity Projection';
-  RENDERING_MODES2['MIN_INTENSITY_PROJECTION'] = 'Minimum Intensity Projection';
-  RENDERING_MODES2['ADDITIVE'] = 'Additive';
+var RENDERING_MODES = /* @__PURE__ */ ((RENDERING_MODES2) => {
+  RENDERING_MODES2["MAX_INTENSITY_PROJECTION"] = "Maximum Intensity Projection";
+  RENDERING_MODES2["MIN_INTENSITY_PROJECTION"] = "Minimum Intensity Projection";
+  RENDERING_MODES2["ADDITIVE"] = "Additive";
   return RENDERING_MODES2;
 })(RENDERING_MODES || {});
 
-function _optionalChain$4(ops) {
-  let lastAccessLHS = undefined;
-  let value = ops[0];
-  let i = 1;
-  while (i < ops.length) {
-    const op = ops[i];
-    const fn = ops[i + 1];
-    i += 2;
-    if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) {
-      return undefined;
-    }
-    if (op === 'access' || op === 'optionalAccess') {
-      lastAccessLHS = value;
-      value = fn(value);
-    } else if (op === 'call' || op === 'optionalCall') {
-      value = fn((...args) => value.call(lastAccessLHS, ...args));
-      lastAccessLHS = undefined;
-    }
-  }
-  return value;
-}
+function _optionalChain$4(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 const apply_transparent_color = `vec4 apply_transparent_color(vec3 color, vec3 transparentColor, bool useTransparentColor, float opacity){
   return vec4(color, (color == transparentColor && useTransparentColor) ? 0. : opacity);
 }
@@ -1588,7 +1545,7 @@ vec4 colormap(float intensity) {
   return vec4(apply_transparent_color(apply_cmap(min(1.,intensity)).xyz, apply_cmap(0.).xyz, useTransparentColor, opacity));
 }`,
     inject: {
-      'fs:DECKGL_MUTATE_COLOR': `  float intensityCombo = 0.;
+      "fs:DECKGL_MUTATE_COLOR": `  float intensityCombo = 0.;
   intensityCombo += max(0.,intensity0);
   intensityCombo += max(0.,intensity1);
   intensityCombo += max(0.,intensity2);
@@ -1600,20 +1557,13 @@ vec4 colormap(float intensity) {
   };
 }
 const defaultProps$4$1 = {
-  colormap: { type: 'string', value: 'viridis', compare: true },
-  opacity: { type: 'number', value: 1, compare: true },
-  useTransparentColor: { type: 'boolean', value: false, compare: true }
+  colormap: { type: "string", value: "viridis", compare: true },
+  opacity: { type: "number", value: 1, compare: true },
+  useTransparentColor: { type: "boolean", value: false, compare: true }
 };
 const AdditiveColormapExtension = class extends LayerExtension {
   getShaders() {
-    const name =
-      _optionalChain$4([
-        this,
-        'optionalAccess',
-        _ => _.props,
-        'optionalAccess',
-        _2 => _2.colormap
-      ]) || defaultProps$4$1.colormap.value;
+    const name = _optionalChain$4([this, 'optionalAccess', _ => _.props, 'optionalAccess', _2 => _2.colormap]) || defaultProps$4$1.colormap.value;
     const apply_cmap = cmaps[name];
     if (!apply_cmap) {
       throw Error(`No colormap named ${name} found in registry`);
@@ -1639,20 +1589,10 @@ const AdditiveColormapExtension = class extends LayerExtension {
       opacity,
       useTransparentColor
     };
-    _optionalChain$4([
-      this,
-      'access',
-      _3 => _3.state,
-      'access',
-      _4 => _4.model,
-      'optionalAccess',
-      _5 => _5.setUniforms,
-      'call',
-      _6 => _6(uniforms)
-    ]);
+    _optionalChain$4([this, 'access', _3 => _3.state, 'access', _4 => _4.model, 'optionalAccess', _5 => _5.setUniforms, 'call', _6 => _6(uniforms)]);
   }
 };
-AdditiveColormapExtension.extensionName = 'AdditiveColormapExtension';
+AdditiveColormapExtension.extensionName = "AdditiveColormapExtension";
 AdditiveColormapExtension.defaultProps = defaultProps$4$1;
 
 function padWithDefault$1(arr, defaultValue, padWidth) {
@@ -1681,15 +1621,13 @@ const COLOR_PALETTE = [
 ];
 function getDefaultPalette(n) {
   if (n > COLOR_PALETTE.length) {
-    throw new Error('Too many colors');
+    throw new Error("Too many colors");
   }
   return COLOR_PALETTE.slice(0, n);
 }
 function padColors({ colors, channelsVisible }) {
-  const newColors = colors.map((color, i) =>
-    channelsVisible[i]
-      ? color.map(c => c / MAX_COLOR_INTENSITY)
-      : DEFAULT_COLOR_OFF
+  const newColors = colors.map(
+    (color, i) => channelsVisible[i] ? color.map((c) => c / MAX_COLOR_INTENSITY) : DEFAULT_COLOR_OFF
   );
   const padSize = MAX_CHANNELS - newColors.length;
   const paddedColors = padWithDefault$1(
@@ -1727,18 +1665,18 @@ mutate_color(rgb, intensity0, intensity1, intensity2, intensity3, intensity4, in
 rgba = apply_opacity(rgb);
 `;
 const colorPalette = {
-  name: 'color-palette-module',
+  name: "color-palette-module",
   fs: fs$1$1,
   inject: {
-    'fs:DECKGL_MUTATE_COLOR': DECKGL_MUTATE_COLOR
+    "fs:DECKGL_MUTATE_COLOR": DECKGL_MUTATE_COLOR
   }
 };
 
 const defaultProps$3$1 = {
-  colors: { type: 'array', value: null, compare: true },
-  opacity: { type: 'number', value: 1, compare: true },
-  transparentColor: { type: 'array', value: null, compare: true },
-  useTransparentColor: { type: 'boolean', value: false, compare: true }
+  colors: { type: "array", value: null, compare: true },
+  opacity: { type: "number", value: 1, compare: true },
+  transparentColor: { type: "array", value: null, compare: true },
+  useTransparentColor: { type: "boolean", value: false, compare: true }
 };
 const ColorPaletteExtension = class extends LayerExtension {
   getShaders() {
@@ -1762,23 +1700,13 @@ const ColorPaletteExtension = class extends LayerExtension {
     const uniforms = {
       colors: paddedColors,
       opacity,
-      transparentColor: (transparentColor || [0, 0, 0]).map(i => i / 255),
+      transparentColor: (transparentColor || [0, 0, 0]).map((i) => i / 255),
       useTransparentColor: Boolean(useTransparentColor)
     };
-    _optionalChain$4([
-      this,
-      'access',
-      _7 => _7.state,
-      'access',
-      _8 => _8.model,
-      'optionalAccess',
-      _9 => _9.setUniforms,
-      'call',
-      _10 => _10(uniforms)
-    ]);
+    _optionalChain$4([this, 'access', _7 => _7.state, 'access', _8 => _8.model, 'optionalAccess', _9 => _9.setUniforms, 'call', _10 => _10(uniforms)]);
   }
 };
-ColorPaletteExtension.extensionName = 'ColorPaletteExtension';
+ColorPaletteExtension.extensionName = "ColorPaletteExtension";
 ColorPaletteExtension.defaultProps = defaultProps$3$1;
 
 const fs$3 = `// lens bounds for ellipse
@@ -1842,15 +1770,15 @@ void mutate_color(inout vec3 rgb, float intensity0, float intensity1, float inte
 }
 `;
 const lens = {
-  name: 'lens-module',
+  name: "lens-module",
   fs: fs$3,
   inject: {
-    'fs:DECKGL_MUTATE_COLOR': `
+    "fs:DECKGL_MUTATE_COLOR": `
    vec3 rgb = rgba.rgb;
    mutate_color(rgb, intensity0, intensity1, intensity2, intensity3, intensity4, intensity5, vTexCoord);
    rgba = vec4(rgb, 1.);
   `,
-    'fs:#main-end': `
+    "fs:#main-end": `
       bool isFragOnLensBounds = frag_on_lens_bounds(vTexCoord);
       fragColor = (lensEnabled && isFragOnLensBounds) ? vec4(lensBorderColor, 1.) : fragColor;
   `
@@ -1858,12 +1786,12 @@ const lens = {
 };
 
 const defaultProps$2$1 = {
-  lensEnabled: { type: 'boolean', value: false, compare: true },
-  lensSelection: { type: 'number', value: 0, compare: true },
-  lensRadius: { type: 'number', value: 100, compare: true },
-  lensBorderColor: { type: 'array', value: [255, 255, 255], compare: true },
-  lensBorderRadius: { type: 'number', value: 0.02, compare: true },
-  colors: { type: 'array', value: null, compare: true }
+  lensEnabled: { type: "boolean", value: false, compare: true },
+  lensSelection: { type: "number", value: 0, compare: true },
+  lensRadius: { type: "number", value: 100, compare: true },
+  lensBorderColor: { type: "array", value: [255, 255, 255], compare: true },
+  lensBorderRadius: { type: "number", value: 0.02, compare: true },
+  colors: { type: "array", value: null, compare: true }
 };
 const LensExtension = class extends LayerExtension {
   getShaders() {
@@ -1886,7 +1814,7 @@ const LensExtension = class extends LayerExtension {
       }
       const { mousePosition } = layer.context;
       const layerView = layer.context.deck.viewManager.views.filter(
-        view => view.id === viewportId
+        (view) => view.id === viewportId
       )[0];
       const viewState = layer.context.deck.viewManager.viewState[viewportId];
       const viewport = layerView.makeViewport({
@@ -1936,8 +1864,7 @@ const LensExtension = class extends LayerExtension {
       colors,
       channelsVisible
     } = this.props;
-    const [leftMouseBound, bottomMouseBound, rightMouseBound, topMouseBound] =
-      unprojectLensBounds;
+    const [leftMouseBound, bottomMouseBound, rightMouseBound, topMouseBound] = unprojectLensBounds;
     const [left, bottom, right, top] = bounds;
     const leftMouseBoundScaled = (leftMouseBound - left) / (right - left);
     const bottomMouseBoundScaled = (bottomMouseBound - top) / (bottom - top);
@@ -1960,47 +1887,19 @@ const LensExtension = class extends LayerExtension {
       lensBorderRadius,
       colors: paddedColors
     };
-    _optionalChain$4([
-      this,
-      'access',
-      _11 => _11.state,
-      'access',
-      _12 => _12.model,
-      'optionalAccess',
-      _13 => _13.setUniforms,
-      'call',
-      _14 => _14(uniforms)
-    ]);
+    _optionalChain$4([this, 'access', _11 => _11.state, 'access', _12 => _12.model, 'optionalAccess', _13 => _13.setUniforms, 'call', _14 => _14(uniforms)]);
   }
   finalizeState() {
     if (this.context.deck) {
       this.context.deck.eventManager.off({
-        pointermove: _optionalChain$4([
-          this,
-          'access',
-          _15 => _15.state,
-          'optionalAccess',
-          _16 => _16.onMouseMove
-        ]),
-        pointerleave: _optionalChain$4([
-          this,
-          'access',
-          _17 => _17.state,
-          'optionalAccess',
-          _18 => _18.onMouseMove
-        ]),
-        wheel: _optionalChain$4([
-          this,
-          'access',
-          _19 => _19.state,
-          'optionalAccess',
-          _20 => _20.onMouseMove
-        ])
+        pointermove: _optionalChain$4([this, 'access', _15 => _15.state, 'optionalAccess', _16 => _16.onMouseMove]),
+        pointerleave: _optionalChain$4([this, 'access', _17 => _17.state, 'optionalAccess', _18 => _18.onMouseMove]),
+        wheel: _optionalChain$4([this, 'access', _19 => _19.state, 'optionalAccess', _20 => _20.onMouseMove])
       });
     }
   }
 };
-LensExtension.extensionName = 'LensExtension';
+LensExtension.extensionName = "LensExtension";
 LensExtension.defaultProps = defaultProps$2$1;
 
 function colormapModuleFactory3D(name, apply_cmap) {
@@ -2015,7 +1914,7 @@ vec4 colormap(float intensity, float opacity) {
   };
 }
 const defaultProps$1$1 = {
-  colormap: { type: 'string', value: 'viridis', compare: true }
+  colormap: { type: "string", value: "viridis", compare: true }
 };
 const BaseExtension$1 = class BaseExtension extends LayerExtension {
   constructor(...args) {
@@ -2023,14 +1922,7 @@ const BaseExtension$1 = class BaseExtension extends LayerExtension {
     this.opts = this.opts || {};
   }
   getShaders() {
-    const name =
-      _optionalChain$4([
-        this,
-        'optionalAccess',
-        _21 => _21.props,
-        'optionalAccess',
-        _22 => _22.colormap
-      ]) || defaultProps$1$1.colormap.value;
+    const name = _optionalChain$4([this, 'optionalAccess', _21 => _21.props, 'optionalAccess', _22 => _22.colormap]) || defaultProps$1$1.colormap.value;
     const apply_cmap = cmaps[name];
     return {
       ...super.getShaders(),
@@ -2048,10 +1940,10 @@ const BaseExtension$1 = class BaseExtension extends LayerExtension {
     }
   }
 };
-BaseExtension$1.extensionName = 'BaseExtension';
+BaseExtension$1.extensionName = "BaseExtension";
 BaseExtension$1.defaultProps = defaultProps$1$1;
 
-const _BEFORE_RENDER$5 = '';
+const _BEFORE_RENDER$5 = "";
 const _RENDER$5 = `  float intensityArray[6] = float[6](intensityValue0, intensityValue1, intensityValue2, intensityValue3, intensityValue4, intensityValue5);
   float total = 0.0;
 
@@ -2072,18 +1964,14 @@ const _RENDER$5 = `  float intensityArray[6] = float[6](intensityValue0, intensi
   }
   p += ray_dir * dt;
 `;
-const _AFTER_RENDER$5 = '';
+const _AFTER_RENDER$5 = "";
 const AdditiveBlendExtension$1 = class AdditiveBlendExtension extends BaseExtension$1 {
   constructor(args) {
     super(args);
-    this.rendering = {
-      _BEFORE_RENDER: _BEFORE_RENDER$5,
-      _RENDER: _RENDER$5,
-      _AFTER_RENDER: _AFTER_RENDER$5
-    };
+    this.rendering = { _BEFORE_RENDER: _BEFORE_RENDER$5, _RENDER: _RENDER$5, _AFTER_RENDER: _AFTER_RENDER$5 };
   }
 };
-AdditiveBlendExtension$1.extensionName = 'AdditiveBlendExtension';
+AdditiveBlendExtension$1.extensionName = "AdditiveBlendExtension";
 
 const _BEFORE_RENDER$4 = `  float maxVals[6] = float[6](-1.0, -1.0, -1.0, -1.0, -1.0, -1.0);
 `;
@@ -2106,15 +1994,10 @@ const _AFTER_RENDER$4 = `  float total = 0.0;
 const MaximumIntensityProjectionExtension$1 = class MaximumIntensityProjectionExtension extends BaseExtension$1 {
   constructor(args) {
     super(args);
-    this.rendering = {
-      _BEFORE_RENDER: _BEFORE_RENDER$4,
-      _RENDER: _RENDER$4,
-      _AFTER_RENDER: _AFTER_RENDER$4
-    };
+    this.rendering = { _BEFORE_RENDER: _BEFORE_RENDER$4, _RENDER: _RENDER$4, _AFTER_RENDER: _AFTER_RENDER$4 };
   }
 };
-MaximumIntensityProjectionExtension$1.extensionName =
-  'MaximumIntensityProjectionExtension';
+MaximumIntensityProjectionExtension$1.extensionName = "MaximumIntensityProjectionExtension";
 
 const _BEFORE_RENDER$3 = `  float minVals[6] = float[6](1. / 0., 1. / 0., 1. / 0., 1. / 0., 1. / 0., 1. / 0.);
 `;
@@ -2137,15 +2020,10 @@ const _AFTER_RENDER$3 = `  float total = 0.0;
 const MinimumIntensityProjectionExtension$1 = class MinimumIntensityProjectionExtension extends BaseExtension$1 {
   constructor(args) {
     super(args);
-    this.rendering = {
-      _BEFORE_RENDER: _BEFORE_RENDER$3,
-      _RENDER: _RENDER$3,
-      _AFTER_RENDER: _AFTER_RENDER$3
-    };
+    this.rendering = { _BEFORE_RENDER: _BEFORE_RENDER$3, _RENDER: _RENDER$3, _AFTER_RENDER: _AFTER_RENDER$3 };
   }
 };
-MinimumIntensityProjectionExtension$1.extensionName =
-  'MinimumIntensityProjectionExtension';
+MinimumIntensityProjectionExtension$1.extensionName = "MinimumIntensityProjectionExtension";
 
 const AdditiveColormap3DExtensions = {
   BaseExtension: BaseExtension$1,
@@ -2155,7 +2033,7 @@ const AdditiveColormap3DExtensions = {
 };
 
 const defaultProps$9 = {
-  colors: { type: 'array', value: null, compare: true }
+  colors: { type: "array", value: null, compare: true }
 };
 const BaseExtension = class extends LayerExtension {
   constructor(...args) {
@@ -2171,23 +2049,13 @@ const BaseExtension = class extends LayerExtension {
     const uniforms = {
       colors: paddedColors
     };
-    _optionalChain$4([
-      this,
-      'access',
-      _23 => _23.state,
-      'access',
-      _24 => _24.model,
-      'optionalAccess',
-      _25 => _25.setUniforms,
-      'call',
-      _26 => _26(uniforms)
-    ]);
+    _optionalChain$4([this, 'access', _23 => _23.state, 'access', _24 => _24.model, 'optionalAccess', _25 => _25.setUniforms, 'call', _26 => _26(uniforms)]);
   }
 };
-BaseExtension.extensionName = 'BaseExtension';
+BaseExtension.extensionName = "BaseExtension";
 BaseExtension.defaultProps = defaultProps$9;
 
-const _BEFORE_RENDER$2 = '';
+const _BEFORE_RENDER$2 = "";
 const _RENDER$2 = `  vec3 rgbCombo = vec3(0.0);
   vec3 hsvCombo = vec3(0.0);
   float intensityArray[6] = float[6](intensityValue0, intensityValue1, intensityValue2, intensityValue3, intensityValue4, intensityValue5);
@@ -2208,18 +2076,14 @@ const _RENDER$2 = `  vec3 rgbCombo = vec3(0.0);
     break;
   }
 `;
-const _AFTER_RENDER$2 = '';
+const _AFTER_RENDER$2 = "";
 const AdditiveBlendExtension = class extends BaseExtension {
   constructor(args) {
     super(args);
-    this.rendering = {
-      _BEFORE_RENDER: _BEFORE_RENDER$2,
-      _RENDER: _RENDER$2,
-      _AFTER_RENDER: _AFTER_RENDER$2
-    };
+    this.rendering = { _BEFORE_RENDER: _BEFORE_RENDER$2, _RENDER: _RENDER$2, _AFTER_RENDER: _AFTER_RENDER$2 };
   }
 };
-AdditiveBlendExtension.extensionName = 'AdditiveBlendExtension';
+AdditiveBlendExtension.extensionName = "AdditiveBlendExtension";
 
 const _BEFORE_RENDER$1 = `  float maxVals[6] = float[6](-1.0, -1.0, -1.0, -1.0, -1.0, -1.0);
 `;
@@ -2240,15 +2104,10 @@ const _AFTER_RENDER$1 = `  vec3 rgbCombo = vec3(0.0);
 const MaximumIntensityProjectionExtension = class extends BaseExtension {
   constructor(args) {
     super(args);
-    this.rendering = {
-      _BEFORE_RENDER: _BEFORE_RENDER$1,
-      _RENDER: _RENDER$1,
-      _AFTER_RENDER: _AFTER_RENDER$1
-    };
+    this.rendering = { _BEFORE_RENDER: _BEFORE_RENDER$1, _RENDER: _RENDER$1, _AFTER_RENDER: _AFTER_RENDER$1 };
   }
 };
-MaximumIntensityProjectionExtension.extensionName =
-  'MaximumIntensityProjectionExtension';
+MaximumIntensityProjectionExtension.extensionName = "MaximumIntensityProjectionExtension";
 
 const _BEFORE_RENDER = `  float minVals[6] = float[6](1. / 0., 1. / 0., 1. / 0., 1. / 0., 1. / 0., 1. / 0.);
 `;
@@ -2272,8 +2131,7 @@ const MinimumIntensityProjectionExtension = class extends BaseExtension {
     this.rendering = { _BEFORE_RENDER, _RENDER, _AFTER_RENDER };
   }
 };
-MinimumIntensityProjectionExtension.extensionName =
-  'MinimumIntensityProjectionExtension';
+MinimumIntensityProjectionExtension.extensionName = "MinimumIntensityProjectionExtension";
 
 const ColorPalette3DExtensions = {
   BaseExtension,
@@ -2282,52 +2140,17 @@ const ColorPalette3DExtensions = {
   MinimumIntensityProjectionExtension
 };
 
-function _nullishCoalesce$2(lhs, rhsFn) {
-  if (lhs != null) {
-    return lhs;
-  } else {
-    return rhsFn();
-  }
-}
-function _optionalChain$3(ops) {
-  let lastAccessLHS = undefined;
-  let value = ops[0];
-  let i = 1;
-  while (i < ops.length) {
-    const op = ops[i];
-    const fn = ops[i + 1];
-    i += 2;
-    if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) {
-      return undefined;
-    }
-    if (op === 'access' || op === 'optionalAccess') {
-      lastAccessLHS = value;
-      value = fn(value);
-    } else if (op === 'call' || op === 'optionalCall') {
-      value = fn((...args) => value.call(lastAccessLHS, ...args));
-      lastAccessLHS = undefined;
-    }
-  }
-  return value;
-}
+function _nullishCoalesce$2(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$3(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 var __defProp$3 = Object.defineProperty;
-var __defNormalProp$3 = (obj, key, value) =>
-  key in obj
-    ? __defProp$3(obj, key, {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value
-      })
-    : (obj[key] = value);
+var __defNormalProp$3 = (obj, key, value) => key in obj ? __defProp$3(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __publicField$3 = (obj, key, value) => {
-  __defNormalProp$3(obj, key + '', value);
+  __defNormalProp$3(obj, key + "" , value);
   return value;
 };
 class LZWDecoder extends BaseDecoder {
   constructor(fileDirectory) {
     super();
-    __publicField$3(this, 'maxUncompressedSize');
+    __publicField$3(this, "maxUncompressedSize");
     const width = fileDirectory.TileWidth || fileDirectory.ImageWidth;
     const height = fileDirectory.TileLength || fileDirectory.ImageLength;
     const nbytes = fileDirectory.BitsPerSample[0] / 8;
@@ -2341,14 +2164,14 @@ class LZWDecoder extends BaseDecoder {
 }
 
 const DTYPE_LOOKUP$1 = {
-  uint8: 'Uint8',
-  uint16: 'Uint16',
-  uint32: 'Uint32',
-  float: 'Float32',
-  double: 'Float64',
-  int8: 'Int8',
-  int16: 'Int16',
-  int32: 'Int32'
+  uint8: "Uint8",
+  uint16: "Uint16",
+  uint32: "Uint32",
+  float: "Float32",
+  double: "Float64",
+  int8: "Int8",
+  int16: "Int16",
+  int32: "Int32"
 };
 function getChannelStats(arr) {
   let len = arr.length;
@@ -2380,7 +2203,7 @@ function getChannelStats(arr) {
   const q1 = arr[firstQuartileLocation];
   quickselect(arr, thirdQuartileLocation, mid, arr.length - 1);
   const q3 = arr[thirdQuartileLocation];
-  const cutoffArr = arr.filter(i => i > 0);
+  const cutoffArr = arr.filter((i) => i > 0);
   const cutoffPercentile = 5e-4;
   const topCutoffLocation = Math.floor(
     cutoffArr.length * (1 - cutoffPercentile)
@@ -2404,7 +2227,7 @@ function getChannelStats(arr) {
 }
 function intToRgba(int) {
   if (!Number.isInteger(int)) {
-    throw Error('Not an integer.');
+    throw Error("Not an integer.");
   }
   const buffer = new ArrayBuffer(4);
   const view = new DataView(buffer);
@@ -2417,7 +2240,7 @@ function isInterleaved(shape) {
   return lastDimSize === 3 || lastDimSize === 4;
 }
 function getLabels(dimOrder) {
-  return dimOrder.toLowerCase().split('').reverse();
+  return dimOrder.toLowerCase().split("").reverse();
 }
 function getImageSize(source) {
   const interleaved = isInterleaved(source.shape);
@@ -2427,7 +2250,7 @@ function getImageSize(source) {
 function prevPowerOf2(x) {
   return 2 ** Math.floor(Math.log2(x));
 }
-const SIGNAL_ABORTED = '__vivSignalAborted';
+const SIGNAL_ABORTED = "__vivSignalAborted";
 function isElement(node) {
   return node.nodeType === 1;
 }
@@ -2436,24 +2259,10 @@ function isText(node) {
 }
 function xmlToJson(xmlNode, options) {
   if (isText(xmlNode)) {
-    return _nullishCoalesce$2(
-      _optionalChain$3([
-        xmlNode,
-        'access',
-        _2 => _2.nodeValue,
-        'optionalAccess',
-        _3 => _3.trim,
-        'call',
-        _4 => _4()
-      ]),
-      () => ''
-    );
+    return _nullishCoalesce$2(_optionalChain$3([xmlNode, 'access', _2 => _2.nodeValue, 'optionalAccess', _3 => _3.trim, 'call', _4 => _4()]), () => ( ""));
   }
-  if (
-    xmlNode.childNodes.length === 0 &&
-    (!xmlNode.attributes || xmlNode.attributes.length === 0)
-  ) {
-    return '';
+  if (xmlNode.childNodes.length === 0 && (!xmlNode.attributes || xmlNode.attributes.length === 0)) {
+    return "";
   }
   const xmlObj = {};
   if (xmlNode.attributes && xmlNode.attributes.length > 0) {
@@ -2470,8 +2279,8 @@ function xmlToJson(xmlNode, options) {
       continue;
     }
     const childXmlObj = xmlToJson(childNode, options);
-    if (childXmlObj !== void 0 && childXmlObj !== '') {
-      if (childNode.nodeName === '#text' && xmlNode.childNodes.length === 1) {
+    if (childXmlObj !== void 0 && childXmlObj !== "") {
+      if (childNode.nodeName === "#text" && xmlNode.childNodes.length === 1) {
         return childXmlObj;
       }
       if (xmlObj[childNode.nodeName]) {
@@ -2490,23 +2299,23 @@ function parseXML(xmlString) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(
     // biome-ignore lint/suspicious/noControlCharactersInRegex: Necessary for parsing XML
-    xmlString.replace(/\u0000$/, ''),
-    'application/xml'
+    xmlString.replace(/\u0000$/, ""),
+    "application/xml"
   );
-  return xmlToJson(doc.documentElement, { attrtibutesKey: 'attr' });
+  return xmlToJson(doc.documentElement, { attrtibutesKey: "attr" });
 }
 function assert(condition, message) {
   if (!condition) {
-    throw new Error(`Assert failed${message ? `: ${message}` : ''}`);
+    throw new Error(`Assert failed${message ? `: ${message}` : ""}`);
   }
 }
 
-const VIV_PROXY_KEY = '__viv';
+const VIV_PROXY_KEY = "__viv";
 const OFFSETS_PROXY_KEY = `${VIV_PROXY_KEY}-offsets`;
 function createOffsetsProxy(tiff, offsets) {
   const get = (target, key) => {
-    if (key === 'getImage') {
-      return index => {
+    if (key === "getImage") {
+      return (index) => {
         if (!(index in target.ifdRequests) && index in offsets) {
           const offset = offsets[index];
           target.ifdRequests[index] = target.parseFileDirectoryAt(offset);
@@ -2523,22 +2332,17 @@ function createOffsetsProxy(tiff, offsets) {
 }
 
 function extractPhysicalSizesfromPixels(d) {
-  if (
-    !d['PhysicalSizeX'] ||
-    !d['PhysicalSizeY'] ||
-    !d['PhysicalSizeXUnit'] ||
-    !d['PhysicalSizeYUnit']
-  ) {
+  if (!d["PhysicalSizeX"] || !d["PhysicalSizeY"] || !d["PhysicalSizeXUnit"] || !d["PhysicalSizeYUnit"]) {
     return void 0;
   }
   const physicalSizes = {
-    x: { size: d['PhysicalSizeX'], unit: d['PhysicalSizeXUnit'] },
-    y: { size: d['PhysicalSizeY'], unit: d['PhysicalSizeYUnit'] }
+    x: { size: d["PhysicalSizeX"], unit: d["PhysicalSizeXUnit"] },
+    y: { size: d["PhysicalSizeY"], unit: d["PhysicalSizeYUnit"] }
   };
-  if (d['PhysicalSizeZ'] && d['PhysicalSizeZUnit']) {
+  if (d["PhysicalSizeZ"] && d["PhysicalSizeZUnit"]) {
     physicalSizes.z = {
-      size: d['PhysicalSizeZ'],
-      unit: d['PhysicalSizeZUnit']
+      size: d["PhysicalSizeZ"],
+      unit: d["PhysicalSizeZUnit"]
     };
   }
   return physicalSizes;
@@ -2548,25 +2352,25 @@ function parsePixelDataType(dtype) {
   return DTYPE_LOOKUP$1[dtype];
 }
 function extractAxesFromPixels(d) {
-  const labels = getLabels(d['DimensionOrder']);
+  const labels = getLabels(d["DimensionOrder"]);
   const shape = Array(labels.length).fill(0);
-  shape[labels.indexOf('t')] = d['SizeT'];
-  shape[labels.indexOf('c')] = d['SizeC'];
-  shape[labels.indexOf('z')] = d['SizeZ'];
-  shape[labels.indexOf('y')] = d['SizeY'];
-  shape[labels.indexOf('x')] = d['SizeX'];
-  if (d['Interleaved']) {
-    labels.push('_c');
+  shape[labels.indexOf("t")] = d["SizeT"];
+  shape[labels.indexOf("c")] = d["SizeC"];
+  shape[labels.indexOf("z")] = d["SizeZ"];
+  shape[labels.indexOf("y")] = d["SizeY"];
+  shape[labels.indexOf("x")] = d["SizeX"];
+  if (d["Interleaved"]) {
+    labels.push("_c");
     shape.push(3);
   }
   return { labels, shape };
 }
 function getShapeForBinaryDownsampleLevel(options) {
   const { axes, level } = options;
-  const xIndex = axes.labels.indexOf('x');
-  assert(xIndex !== -1, 'x dimension not found');
-  const yIndex = axes.labels.indexOf('y');
-  assert(yIndex !== -1, 'y dimension not found');
+  const xIndex = axes.labels.indexOf("x");
+  assert(xIndex !== -1, "x dimension not found");
+  const yIndex = axes.labels.indexOf("y");
+  assert(yIndex !== -1, "y dimension not found");
   const resolutionShape = axes.shape.slice();
   resolutionShape[xIndex] = axes.shape[xIndex] >> level;
   resolutionShape[yIndex] = axes.shape[yIndex] >> level;
@@ -2580,18 +2384,7 @@ function getTiffTileSize(image) {
 }
 function guessImageDataType(image) {
   const sampleIndex = 0;
-  const format = _nullishCoalesce$2(
-    _optionalChain$3([
-      image,
-      'access',
-      _5 => _5.fileDirectory,
-      'optionalAccess',
-      _6 => _6.SampleFormat,
-      'optionalAccess',
-      _7 => _7[sampleIndex]
-    ]),
-    () => 1
-  );
+  const format = _nullishCoalesce$2(_optionalChain$3([image, 'access', _5 => _5.fileDirectory, 'optionalAccess', _6 => _6.SampleFormat, 'optionalAccess', _7 => _7[sampleIndex]]), () => ( 1));
   const bitsPerSample = image.fileDirectory.BitsPerSample[sampleIndex];
   switch (format) {
     case 1:
@@ -2627,7 +2420,7 @@ function guessImageDataType(image) {
       }
       break;
   }
-  throw Error('Unsupported data format/bitsPerSample');
+  throw Error("Unsupported data format/bitsPerSample");
 }
 function getMultiTiffShapeMap(tiffs) {
   let [c, z, t] = [0, 0, 0];
@@ -2651,11 +2444,8 @@ function getChannelSamplesPerPixel(tiffs, numChannels) {
     const curChannel = tiff.selection.c;
     const curSamplesPerPixel = tiff.tiff.getSamplesPerPixel();
     const existingSamplesPerPixel = channelSamplesPerPixel[curChannel];
-    if (
-      existingSamplesPerPixel &&
-      existingSamplesPerPixel !== curSamplesPerPixel
-    ) {
-      throw Error('Channel samples per pixel mismatch');
+    if (existingSamplesPerPixel && existingSamplesPerPixel !== curSamplesPerPixel) {
+      throw Error("Channel samples per pixel mismatch");
     }
     channelSamplesPerPixel[curChannel] = curSamplesPerPixel;
   }
@@ -2672,15 +2462,7 @@ function getMultiTiffMeta(dimensionOrder, tiffs) {
   const dtype = guessImageDataType(firstTiff);
   return { shape, labels, dtype };
 }
-function getMultiTiffPixelMedatata(
-  imageNumber,
-  dimensionOrder,
-  shapeMap,
-  dType,
-  tiffs,
-  channelNames,
-  channelSamplesPerPixel
-) {
+function getMultiTiffPixelMedatata(imageNumber, dimensionOrder, shapeMap, dType, tiffs, channelNames, channelSamplesPerPixel) {
   const channelMetadata = [];
   for (let i = 0; i < shapeMap.c; i += 1) {
     channelMetadata.push({
@@ -2702,17 +2484,11 @@ function getMultiTiffPixelMedatata(
     Channels: channelMetadata
   };
 }
-function getMultiTiffMetadata(
-  imageName,
-  tiffImages,
-  channelNames,
-  dimensionOrder,
-  dType
-) {
+function getMultiTiffMetadata(imageName, tiffImages, channelNames, dimensionOrder, dType) {
   const imageNumber = 0;
   const id = `Image:${imageNumber}`;
-  const date = '';
-  const description = '';
+  const date = "";
+  const description = "";
   const shapeMap = getMultiTiffShapeMap(tiffImages);
   const channelSamplesPerPixel = getChannelSamplesPerPixel(
     tiffImages,
@@ -2720,7 +2496,7 @@ function getMultiTiffMetadata(
   );
   if (channelNames.length !== shapeMap.c)
     throw Error(
-      'Wrong number of channel names for number of channels provided'
+      "Wrong number of channel names for number of channels provided"
     );
   const pixels = getMultiTiffPixelMedatata(
     imageNumber,
@@ -2733,10 +2509,10 @@ function getMultiTiffMetadata(
   );
   const format = () => {
     return {
-      'Acquisition Date': date,
-      'Dimensions (XY)': `${shapeMap.x} x ${shapeMap.y}`,
+      "Acquisition Date": date,
+      "Dimensions (XY)": `${shapeMap.x} x ${shapeMap.y}`,
       PixelsType: dType,
-      'Z-sections/Timepoints': `${shapeMap.z} x ${shapeMap.t}`,
+      "Z-sections/Timepoints": `${shapeMap.z} x ${shapeMap.t}`,
       Channels: shapeMap.c
     };
   };
@@ -2751,16 +2527,10 @@ function getMultiTiffMetadata(
 }
 function parseFilename(path) {
   const parsedFilename = {};
-  const filename = path.split('/').pop();
-  const splitFilename = _optionalChain$3([
-    filename,
-    'optionalAccess',
-    _8 => _8.split,
-    'call',
-    _9 => _9('.')
-  ]);
+  const filename = path.split("/").pop();
+  const splitFilename = _optionalChain$3([filename, 'optionalAccess', _8 => _8.split, 'call', _9 => _9(".")]);
   if (splitFilename) {
-    parsedFilename.name = splitFilename.slice(0, -1).join('.');
+    parsedFilename.name = splitFilename.slice(0, -1).join(".");
     [, parsedFilename.extension] = splitFilename;
   }
   return parsedFilename;
@@ -2769,8 +2539,8 @@ function createGeoTiffObject(source, { headers }) {
   if (source instanceof Blob) {
     return fromBlob(source);
   }
-  const url = typeof source === 'string' ? new URL(source) : source;
-  if (url.protocol === 'file:') {
+  const url = typeof source === "string" ? new URL(source) : source;
+  if (url.protocol === "file:") {
     return fromFile(url.pathname);
   }
   return fromUrl(url.href, { headers, cacheSize: Number.POSITIVE_INFINITY });
@@ -2780,10 +2550,7 @@ async function createGeoTiff(source, options = {}) {
   return options.offsets ? createOffsetsProxy(tiff, options.offsets) : tiff;
 }
 
-function createOmeImageIndexerFromResolver(
-  resolveBaseResolutionImageLocation,
-  image
-) {
+function createOmeImageIndexerFromResolver(resolveBaseResolutionImageLocation, image) {
   const ifdCache = [];
   return async (sel, pyramidLevel) => {
     const { tiff, ifdIndex } = await resolveBaseResolutionImageLocation(sel);
@@ -2795,8 +2562,7 @@ function createOmeImageIndexerFromResolver(
     if (baseImage.fileDirectory.SubIFDs) {
       index = baseImage.fileDirectory.SubIFDs[pyramidLevel - 1];
     } else {
-      const resolutionOffset =
-        pyramidLevel * image.size.z * image.size.t * image.size.c;
+      const resolutionOffset = pyramidLevel * image.size.z * image.size.t * image.size.c;
       index = ifdIndex + resolutionOffset;
     }
     if (!ifdCache[index]) {
@@ -2820,26 +2586,19 @@ function getMultiTiffIndexer(tiffs) {
   const lookup = new Map(
     tiffs.map(({ selection, tiff }) => [selectionToKey(selection), tiff])
   );
-  return async sel => {
+  return async (sel) => {
     const key = selectionToKey(sel);
     const img = lookup.get(key);
-    if (!img) throw new Error(`No image available for selection ${key}`);
+    if (!img)
+      throw new Error(`No image available for selection ${key}`);
     return img;
   };
 }
 
 var __defProp$2 = Object.defineProperty;
-var __defNormalProp$2 = (obj, key, value) =>
-  key in obj
-    ? __defProp$2(obj, key, {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value
-      })
-    : (obj[key] = value);
+var __defNormalProp$2 = (obj, key, value) => key in obj ? __defProp$2(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __publicField$2 = (obj, key, value) => {
-  __defNormalProp$2(obj, key + '', value);
+  __defNormalProp$2(obj, key + "" , value);
   return value;
 };
 class TiffPixelSource {
@@ -2850,7 +2609,7 @@ class TiffPixelSource {
     this.labels = labels;
     this.meta = meta;
     this.pool = pool;
-    __publicField$2(this, '_indexer');
+    __publicField$2(this, "_indexer");
     this._indexer = indexer;
   }
   async getRaster({ selection, signal }) {
@@ -2872,15 +2631,7 @@ class TiffPixelSource {
       ...props,
       pool: this.pool
     });
-    if (
-      _optionalChain$3([
-        props,
-        'optionalAccess',
-        _10 => _10.signal,
-        'optionalAccess',
-        _11 => _11.aborted
-      ])
-    ) {
+    if (_optionalChain$3([props, 'optionalAccess', _10 => _10.signal, 'optionalAccess', _11 => _11.aborted])) {
       throw SIGNAL_ABORTED;
     }
     const data = interleave ? raster : raster[0];
@@ -2894,8 +2645,7 @@ class TiffPixelSource {
    * Computes tile size given x, y coord.
    */
   _getTileExtent(x, y) {
-    const { height: zoomLevelHeight, width: zoomLevelWidth } =
-      getImageSize(this);
+    const { height: zoomLevelHeight, width: zoomLevelWidth } = getImageSize(this);
     let height = this.tileSize;
     let width = this.tileSize;
     const maxXTileCoord = Math.floor(zoomLevelWidth / this.tileSize);
@@ -2918,18 +2668,14 @@ function assertSameResolution(images) {
   const height = images[0].tiff.getHeight();
   for (const image of images) {
     if (image.tiff.getWidth() !== width || image.tiff.getHeight() !== height) {
-      throw new Error('All images must have the same width and height');
+      throw new Error("All images must have the same width and height");
     }
   }
 }
 async function assertCompleteStack(images, indexer) {
-  for (let t = 0; t <= Math.max(...images.map(i => i.selection.t)); t += 1) {
-    for (let c = 0; c <= Math.max(...images.map(i => i.selection.c)); c += 1) {
-      for (
-        let z = 0;
-        z <= Math.max(...images.map(i => i.selection.z));
-        z += 1
-      ) {
+  for (let t = 0; t <= Math.max(...images.map((i) => i.selection.t)); t += 1) {
+    for (let c = 0; c <= Math.max(...images.map((i) => i.selection.c)); c += 1) {
+      for (let z = 0; z <= Math.max(...images.map((i) => i.selection.z)); z += 1) {
         await indexer({ t, c, z });
       }
     }
@@ -2938,9 +2684,8 @@ async function assertCompleteStack(images, indexer) {
 async function load$2(imageName, images, channelNames, pool) {
   assertSameResolution(images);
   const firstImage = images[0].tiff;
-  const { PhotometricInterpretation: photometricInterpretation } =
-    firstImage.fileDirectory;
-  const dimensionOrder = 'XYZCT';
+  const { PhotometricInterpretation: photometricInterpretation } = firstImage.fileDirectory;
+  const dimensionOrder = "XYZCT";
   const tileSize = getTiffTileSize(firstImage);
   const meta = { photometricInterpretation };
   const indexer = getMultiTiffIndexer(images);
@@ -2968,208 +2713,175 @@ async function load$2(imageName, images, channelNames, pool) {
   };
 }
 
-function flattenAttributes({ attr, ...rest }) {
+function flattenAttributes({
+  attr,
+  ...rest
+}) {
   return { ...attr, ...rest };
 }
 function ensureArray(x) {
   return Array.isArray(x) ? x : [x];
 }
 const DimensionOrderSchema = z.enum([
-  'XYZCT',
-  'XYZTC',
-  'XYCTZ',
-  'XYCZT',
-  'XYTCZ',
-  'XYTZC'
+  "XYZCT",
+  "XYZTC",
+  "XYCTZ",
+  "XYCZT",
+  "XYTCZ",
+  "XYTZC"
 ]);
 const PixelTypeSchema = z.enum([
-  'int8',
-  'int16',
-  'int32',
-  'uint8',
-  'uint16',
-  'uint32',
-  'float',
-  'bit',
-  'double',
-  'complex',
-  'double-complex'
+  "int8",
+  "int16",
+  "int32",
+  "uint8",
+  "uint16",
+  "uint32",
+  "float",
+  "bit",
+  "double",
+  "complex",
+  "double-complex"
 ]);
 const PhysicalUnitSchema = z.enum([
-  'Ym',
-  'Zm',
-  'Em',
-  'Pm',
-  'Tm',
-  'Gm',
-  'Mm',
-  'km',
-  'hm',
-  'dam',
-  'm',
-  'dm',
-  'cm',
-  'mm',
-  '\xB5m',
-  'nm',
-  'pm',
-  'fm',
-  'am',
-  'zm',
-  'ym',
-  '\xC5',
-  'thou',
-  'li',
-  'in',
-  'ft',
-  'yd',
-  'mi',
-  'ua',
-  'ly',
-  'pc',
-  'pt',
-  'pixel',
-  'reference frame'
+  "Ym",
+  "Zm",
+  "Em",
+  "Pm",
+  "Tm",
+  "Gm",
+  "Mm",
+  "km",
+  "hm",
+  "dam",
+  "m",
+  "dm",
+  "cm",
+  "mm",
+  "\xB5m",
+  "nm",
+  "pm",
+  "fm",
+  "am",
+  "zm",
+  "ym",
+  "\xC5",
+  "thou",
+  "li",
+  "in",
+  "ft",
+  "yd",
+  "mi",
+  "ua",
+  "ly",
+  "pc",
+  "pt",
+  "pixel",
+  "reference frame"
 ]);
 z.enum([
-  'Rectangle',
-  'Ellipse',
-  'Polygon',
-  'Polyline',
-  'Line',
-  'Point',
-  'Label'
+  "Rectangle",
+  "Ellipse",
+  "Polygon",
+  "Polyline",
+  "Line",
+  "Point",
+  "Label"
 ]);
-const TransformSchema = z
-  .object({})
-  .extend({
-    attr: z.object({
-      A00: z.coerce.number(),
-      A01: z.coerce.number(),
-      A02: z.coerce.number(),
-      A10: z.coerce.number(),
-      A11: z.coerce.number(),
-      A12: z.coerce.number()
-    })
+const TransformSchema = z.object({}).extend({
+  attr: z.object({
+    A00: z.coerce.number(),
+    A01: z.coerce.number(),
+    A02: z.coerce.number(),
+    A10: z.coerce.number(),
+    A11: z.coerce.number(),
+    A12: z.coerce.number()
   })
-  .transform(flattenAttributes);
+}).transform(flattenAttributes);
 function createShapeSchema(specificAttrs, shapeType) {
-  return z
-    .object({
-      Transform: TransformSchema.optional()
+  return z.object({
+    Transform: TransformSchema.optional()
+  }).extend({
+    attr: z.object({
+      // Common Shape attributes (inherited by all shapes)
+      ID: z.string(),
+      Label: z.string().optional(),
+      // OME-XML uses "Label" 
+      Name: z.string().optional(),
+      // Some implementations also use "Name"
+      // Visual styling attributes
+      FillColor: z.coerce.number().transform(intToRgba).optional(),
+      StrokeColor: z.coerce.number().transform(intToRgba).optional(),
+      StrokeWidth: z.coerce.number().optional(),
+      StrokeDashArray: z.string().optional(),
+      LineCap: z.enum(["Butt", "Round", "Square"]).optional(),
+      // Spatial/temporal context attributes
+      TheC: z.coerce.number().optional(),
+      TheT: z.coerce.number().optional(),
+      TheZ: z.coerce.number().optional(),
+      // Text and font attributes
+      Text: z.string().optional(),
+      FontFamily: z.string().optional(),
+      FontSize: z.coerce.number().optional(),
+      FontStyle: z.enum(["Normal", "Italic", "Bold", "BoldItalic"]).optional(),
+      // Interaction and state attributes
+      Locked: z.string().transform((v) => v.toLowerCase() === "true").optional(),
+      Visible: z.string().transform((v) => v.toLowerCase() === "true").optional(),
+      // Shape-specific attributes
+      ...specificAttrs
     })
-    .extend({
-      attr: z.object({
-        // Common Shape attributes (inherited by all shapes)
-        ID: z.string(),
-        Label: z.string().optional(),
-        // OME-XML uses "Label"
-        Name: z.string().optional(),
-        // Some implementations also use "Name"
-        // Visual styling attributes
-        FillColor: z.coerce.number().transform(intToRgba).optional(),
-        StrokeColor: z.coerce.number().transform(intToRgba).optional(),
-        StrokeWidth: z.coerce.number().optional(),
-        StrokeDashArray: z.string().optional(),
-        LineCap: z.enum(['Butt', 'Round', 'Square']).optional(),
-        // Spatial/temporal context attributes
-        TheC: z.coerce.number().optional(),
-        TheT: z.coerce.number().optional(),
-        TheZ: z.coerce.number().optional(),
-        // Text and font attributes
-        Text: z.string().optional(),
-        FontFamily: z.string().optional(),
-        FontSize: z.coerce.number().optional(),
-        FontStyle: z
-          .enum(['Normal', 'Italic', 'Bold', 'BoldItalic'])
-          .optional(),
-        // Interaction and state attributes
-        Locked: z
-          .string()
-          .transform(v => v.toLowerCase() === 'true')
-          .optional(),
-        Visible: z
-          .string()
-          .transform(v => v.toLowerCase() === 'true')
-          .optional(),
-        // Shape-specific attributes
-        ...specificAttrs
-      })
-    })
-    .transform(flattenAttributes)
-    .transform(data => ({ ...data, type: shapeType }));
+  }).transform(flattenAttributes).transform((data) => ({ ...data, type: shapeType }));
 }
-const RectangleSchema = createShapeSchema(
-  {
-    X: z.coerce.number(),
-    // Top-left X coordinate
-    Y: z.coerce.number(),
-    // Top-left Y coordinate
-    Width: z.coerce.number(),
-    // Rectangle width
-    Height: z.coerce.number()
-    // Rectangle height
-  },
-  'rectangle'
-);
-const EllipseSchema = createShapeSchema(
-  {
-    X: z.coerce.number(),
-    // Center X coordinate
-    Y: z.coerce.number(),
-    // Center Y coordinate
-    RadiusX: z.coerce.number(),
-    // Horizontal radius
-    RadiusY: z.coerce.number()
-    // Vertical radius
-  },
-  'ellipse'
-);
-const LineSchema = createShapeSchema(
-  {
-    X1: z.coerce.number(),
-    // Start point X coordinate
-    Y1: z.coerce.number(),
-    // Start point Y coordinate
-    X2: z.coerce.number(),
-    // End point X coordinate
-    Y2: z.coerce.number()
-    // End point Y coordinate
-  },
-  'line'
-);
-const PointSchema = createShapeSchema(
-  {
-    X: z.coerce.number(),
-    // Point X coordinate
-    Y: z.coerce.number()
-    // Point Y coordinate
-  },
-  'point'
-);
-const PolygonSchema = createShapeSchema(
-  {
-    Points: z.string()
-    // Format: "x1,y1 x2,y2 x3,y3 ..." (space-separated coordinate pairs)
-  },
-  'polygon'
-);
-const PolylineSchema = createShapeSchema(
-  {
-    Points: z.string()
-    // Format: "x1,y1 x2,y2 x3,y3 ..." (space-separated coordinate pairs)
-  },
-  'polyline'
-);
-const LabelSchema = createShapeSchema(
-  {
-    X: z.coerce.number(),
-    // Label X coordinate
-    Y: z.coerce.number()
-    // Label Y coordinate
-  },
-  'label'
-);
+const RectangleSchema = createShapeSchema({
+  X: z.coerce.number(),
+  // Top-left X coordinate
+  Y: z.coerce.number(),
+  // Top-left Y coordinate
+  Width: z.coerce.number(),
+  // Rectangle width
+  Height: z.coerce.number()
+  // Rectangle height
+}, "rectangle");
+const EllipseSchema = createShapeSchema({
+  X: z.coerce.number(),
+  // Center X coordinate
+  Y: z.coerce.number(),
+  // Center Y coordinate
+  RadiusX: z.coerce.number(),
+  // Horizontal radius
+  RadiusY: z.coerce.number()
+  // Vertical radius
+}, "ellipse");
+const LineSchema = createShapeSchema({
+  X1: z.coerce.number(),
+  // Start point X coordinate
+  Y1: z.coerce.number(),
+  // Start point Y coordinate
+  X2: z.coerce.number(),
+  // End point X coordinate
+  Y2: z.coerce.number()
+  // End point Y coordinate
+}, "line");
+const PointSchema = createShapeSchema({
+  X: z.coerce.number(),
+  // Point X coordinate
+  Y: z.coerce.number()
+  // Point Y coordinate
+}, "point");
+const PolygonSchema = createShapeSchema({
+  Points: z.string()
+  // Format: "x1,y1 x2,y2 x3,y3 ..." (space-separated coordinate pairs)
+}, "polygon");
+const PolylineSchema = createShapeSchema({
+  Points: z.string()
+  // Format: "x1,y1 x2,y2 x3,y3 ..." (space-separated coordinate pairs)
+}, "polyline");
+const LabelSchema = createShapeSchema({
+  X: z.coerce.number(),
+  // Label X coordinate
+  Y: z.coerce.number()
+  // Label Y coordinate
+}, "label");
 const UnionSchema = z.object({
   // Standard OME-XML element names
   Rectangle: z.preprocess(ensureArray, RectangleSchema.array()).optional(),
@@ -3188,177 +2900,152 @@ const UnionSchema = z.object({
   polylines: z.preprocess(ensureArray, PolylineSchema.array()).optional(),
   labels: z.preprocess(ensureArray, LabelSchema.array()).optional()
 });
-const ROISchema = z
-  .object({
-    Union: UnionSchema.optional()
+const ROISchema = z.object({
+  Union: UnionSchema.optional()
+}).extend({
+  attr: z.object({
+    ID: z.string(),
+    Name: z.string().optional(),
+    Description: z.string().optional()
   })
-  .extend({
-    attr: z.object({
-      ID: z.string(),
-      Name: z.string().optional(),
-      Description: z.string().optional()
-    })
+}).transform(flattenAttributes).transform((data) => {
+  const shapes = [];
+  if (data.Union) {
+    if (data.Union.Rectangle)
+      shapes.push(...data.Union.Rectangle);
+    if (data.Union.Ellipse)
+      shapes.push(...data.Union.Ellipse);
+    if (data.Union.Line)
+      shapes.push(...data.Union.Line);
+    if (data.Union.Point)
+      shapes.push(...data.Union.Point);
+    if (data.Union.Polygon)
+      shapes.push(...data.Union.Polygon);
+    if (data.Union.Polyline)
+      shapes.push(...data.Union.Polyline);
+    if (data.Union.Label)
+      shapes.push(...data.Union.Label);
+    if (data.Union.rectangles)
+      shapes.push(...data.Union.rectangles);
+    if (data.Union.ellipses)
+      shapes.push(...data.Union.ellipses);
+    if (data.Union.lines)
+      shapes.push(...data.Union.lines);
+    if (data.Union.points)
+      shapes.push(...data.Union.points);
+    if (data.Union.polygons)
+      shapes.push(...data.Union.polygons);
+    if (data.Union.polylines)
+      shapes.push(...data.Union.polylines);
+    if (data.Union.labels)
+      shapes.push(...data.Union.labels);
+  }
+  const { Union, ...rest } = data;
+  return { ...rest, shapes };
+});
+const ROIRefSchema = z.object({}).extend({
+  attr: z.object({
+    ID: z.string()
   })
-  .transform(flattenAttributes)
-  .transform(data => {
-    const shapes = [];
-    if (data.Union) {
-      if (data.Union.Rectangle) shapes.push(...data.Union.Rectangle);
-      if (data.Union.Ellipse) shapes.push(...data.Union.Ellipse);
-      if (data.Union.Line) shapes.push(...data.Union.Line);
-      if (data.Union.Point) shapes.push(...data.Union.Point);
-      if (data.Union.Polygon) shapes.push(...data.Union.Polygon);
-      if (data.Union.Polyline) shapes.push(...data.Union.Polyline);
-      if (data.Union.Label) shapes.push(...data.Union.Label);
-      if (data.Union.rectangles) shapes.push(...data.Union.rectangles);
-      if (data.Union.ellipses) shapes.push(...data.Union.ellipses);
-      if (data.Union.lines) shapes.push(...data.Union.lines);
-      if (data.Union.points) shapes.push(...data.Union.points);
-      if (data.Union.polygons) shapes.push(...data.Union.polygons);
-      if (data.Union.polylines) shapes.push(...data.Union.polylines);
-      if (data.Union.labels) shapes.push(...data.Union.labels);
-    }
-    const { Union, ...rest } = data;
-    return { ...rest, shapes };
-  });
-const ROIRefSchema = z
-  .object({})
-  .extend({
-    attr: z.object({
-      ID: z.string()
-    })
+}).transform(flattenAttributes);
+const ChannelSchema = z.object({}).extend({
+  attr: z.object({
+    ID: z.string(),
+    SamplesPerPixel: z.coerce.number().optional(),
+    Name: z.string().optional(),
+    Color: z.coerce.number().transform(intToRgba).optional()
   })
-  .transform(flattenAttributes);
-const ChannelSchema = z
-  .object({})
-  .extend({
-    attr: z.object({
-      ID: z.string(),
-      SamplesPerPixel: z.coerce.number().optional(),
-      Name: z.string().optional(),
-      Color: z.coerce.number().transform(intToRgba).optional()
-    })
+}).transform(flattenAttributes);
+const UuidSchema = z.object({}).extend({
+  attr: z.object({
+    FileName: z.string()
   })
-  .transform(flattenAttributes);
-const UuidSchema = z
-  .object({})
-  .extend({
-    attr: z.object({
-      FileName: z.string()
-    })
+}).transform(flattenAttributes);
+const TiffDataSchema = z.object({ UUID: UuidSchema.optional() }).extend({
+  attr: z.object({
+    IFD: z.coerce.number().default(0),
+    PlaneCount: z.coerce.number().default(1),
+    FirstT: z.coerce.number().optional(),
+    FirstC: z.coerce.number().optional(),
+    FirstZ: z.coerce.number().optional()
   })
-  .transform(flattenAttributes);
-const TiffDataSchema = z
-  .object({ UUID: UuidSchema.optional() })
-  .extend({
-    attr: z.object({
-      IFD: z.coerce.number().default(0),
-      PlaneCount: z.coerce.number().default(1),
-      FirstT: z.coerce.number().optional(),
-      FirstC: z.coerce.number().optional(),
-      FirstZ: z.coerce.number().optional()
-    })
+}).transform(flattenAttributes);
+const PixelsSchema = z.object({
+  Channel: z.preprocess(ensureArray, ChannelSchema.array()),
+  TiffData: z.preprocess(ensureArray, TiffDataSchema.array()).optional()
+}).extend({
+  attr: z.object({
+    ID: z.string(),
+    DimensionOrder: DimensionOrderSchema,
+    Type: PixelTypeSchema,
+    SizeT: z.coerce.number(),
+    SizeC: z.coerce.number(),
+    SizeZ: z.coerce.number(),
+    SizeY: z.coerce.number(),
+    SizeX: z.coerce.number(),
+    PhysicalSizeX: z.coerce.number().optional(),
+    PhysicalSizeY: z.coerce.number().optional(),
+    PhysicalSizeZ: z.coerce.number().optional(),
+    SignificantBits: z.coerce.number().optional(),
+    PhysicalSizeXUnit: PhysicalUnitSchema.optional().default("\xB5m"),
+    PhysicalSizeYUnit: PhysicalUnitSchema.optional().default("\xB5m"),
+    PhysicalSizeZUnit: PhysicalUnitSchema.optional().default("\xB5m"),
+    BigEndian: z.string().transform((v) => v.toLowerCase() === "true").optional(),
+    Interleaved: z.string().transform((v) => v.toLowerCase() === "true").optional()
   })
-  .transform(flattenAttributes);
-const PixelsSchema = z
-  .object({
-    Channel: z.preprocess(ensureArray, ChannelSchema.array()),
-    TiffData: z.preprocess(ensureArray, TiffDataSchema.array()).optional()
+}).transform(flattenAttributes).transform(({ Channel, ...rest }) => ({ Channels: Channel, ...rest }));
+const ImageSchema = z.object({
+  AquisitionDate: z.string().optional().default(""),
+  Description: z.unknown().optional().default(""),
+  Pixels: PixelsSchema,
+  ROIRef: z.preprocess(ensureArray, ROIRefSchema.array()).optional()
+}).extend({
+  attr: z.object({
+    ID: z.string(),
+    Name: z.string().optional()
   })
-  .extend({
-    attr: z.object({
-      ID: z.string(),
-      DimensionOrder: DimensionOrderSchema,
-      Type: PixelTypeSchema,
-      SizeT: z.coerce.number(),
-      SizeC: z.coerce.number(),
-      SizeZ: z.coerce.number(),
-      SizeY: z.coerce.number(),
-      SizeX: z.coerce.number(),
-      PhysicalSizeX: z.coerce.number().optional(),
-      PhysicalSizeY: z.coerce.number().optional(),
-      PhysicalSizeZ: z.coerce.number().optional(),
-      SignificantBits: z.coerce.number().optional(),
-      PhysicalSizeXUnit: PhysicalUnitSchema.optional().default('\xB5m'),
-      PhysicalSizeYUnit: PhysicalUnitSchema.optional().default('\xB5m'),
-      PhysicalSizeZUnit: PhysicalUnitSchema.optional().default('\xB5m'),
-      BigEndian: z
-        .string()
-        .transform(v => v.toLowerCase() === 'true')
-        .optional(),
-      Interleaved: z
-        .string()
-        .transform(v => v.toLowerCase() === 'true')
-        .optional()
-    })
-  })
-  .transform(flattenAttributes)
-  .transform(({ Channel, ...rest }) => ({ Channels: Channel, ...rest }));
-const ImageSchema = z
-  .object({
-    AquisitionDate: z.string().optional().default(''),
-    Description: z.unknown().optional().default(''),
-    Pixels: PixelsSchema,
-    ROIRef: z.preprocess(ensureArray, ROIRefSchema.array()).optional()
-  })
-  .extend({
-    attr: z.object({
-      ID: z.string(),
-      Name: z.string().optional()
-    })
-  })
-  .transform(flattenAttributes);
-const OmeSchema = z
-  .object({
-    Image: z.preprocess(ensureArray, ImageSchema.array()).optional(),
-    ROI: z.preprocess(ensureArray, ROISchema.array()).optional(),
-    ROIRef: z.preprocess(ensureArray, ROIRefSchema.array()).optional()
-  })
-  .transform(raw => {
-    const images = _nullishCoalesce$2(raw.Image, () => []);
-    const rootRefs = _nullishCoalesce$2(raw.ROIRef, () => []);
-    const imageRefs = images.flatMap(img =>
-      _nullishCoalesce$2(img.ROIRef, () => [])
-    );
-    const ROIRefCombined = [...rootRefs, ...imageRefs];
-    return { ...raw, ROIRefCombined };
-  });
+}).transform(flattenAttributes);
+const OmeSchema = z.object({
+  Image: z.preprocess(ensureArray, ImageSchema.array()).optional(),
+  ROI: z.preprocess(ensureArray, ROISchema.array()).optional(),
+  ROIRef: z.preprocess(ensureArray, ROIRefSchema.array()).optional()
+}).transform((raw) => {
+  const images = _nullishCoalesce$2(raw.Image, () => ( []));
+  const rootRefs = _nullishCoalesce$2(raw.ROIRef, () => ( []));
+  const imageRefs = images.flatMap((img) => _nullishCoalesce$2(img.ROIRef, () => ( [])));
+  const ROIRefCombined = [...rootRefs, ...imageRefs];
+  return { ...raw, ROIRefCombined };
+});
 function fromString(str) {
   const raw = parseXML(str);
   const omeXml = OmeSchema.parse(raw);
-  console.log('simon', omeXml);
+  console.log("simon", omeXml);
   return {
-    images: _nullishCoalesce$2(omeXml.Image, () => []),
-    rois: _nullishCoalesce$2(omeXml.ROI, () => []),
-    roiRefs: _nullishCoalesce$2(omeXml.ROIRefCombined, () => [])
+    images: _nullishCoalesce$2(omeXml.Image, () => ( [])),
+    rois: _nullishCoalesce$2(omeXml.ROI, () => ( [])),
+    roiRefs: _nullishCoalesce$2(omeXml.ROIRefCombined, () => ( []))
   };
 }
 
 function isCompleteTiffDataItem(item) {
-  return (
-    'FirstC' in item &&
-    'FirstT' in item &&
-    'FirstZ' in item &&
-    'IFD' in item &&
-    'UUID' in item
-  );
+  return "FirstC" in item && "FirstT" in item && "FirstZ" in item && "IFD" in item && "UUID" in item;
 }
 function createMultifileImageDataLookup(tiffData) {
   const lookup = /* @__PURE__ */ new Map();
   function keyFor({ t, c, z }) {
     return `t${t}.c${c}.z${z}`;
   }
-  assert(tiffData, 'No TiffData in OME-XML');
+  assert(tiffData, "No TiffData in OME-XML");
   for (const imageData of tiffData) {
-    assert(isCompleteTiffDataItem(imageData), 'Incomplete TiffData item');
+    assert(isCompleteTiffDataItem(imageData), "Incomplete TiffData item");
     const key = keyFor({
-      t: imageData['FirstT'],
-      c: imageData['FirstC'],
-      z: imageData['FirstZ']
+      t: imageData["FirstT"],
+      c: imageData["FirstC"],
+      z: imageData["FirstZ"]
     });
     const imageDataPointer = {
-      ifd: imageData['IFD'],
-      filename: imageData['UUID']['FileName']
+      ifd: imageData["IFD"],
+      filename: imageData["UUID"]["FileName"]
     };
     lookup.set(key, imageDataPointer);
   }
@@ -3373,7 +3060,7 @@ function createMultifileImageDataLookup(tiffData) {
 function createMultifileOmeTiffResolver(options) {
   const tiffs = /* @__PURE__ */ new Map();
   const lookup = createMultifileImageDataLookup(options.tiffData);
-  return async selection => {
+  return async (selection) => {
     const entry = lookup.getImageDataPointer(selection);
     if (!tiffs.has(entry.filename)) {
       const url = new URL(entry.filename, options.baseUrl);
@@ -3387,7 +3074,7 @@ function createMultifileOmeTiffResolver(options) {
 }
 async function getPixelSourceOptionsForImage(metadata, config) {
   const resolveOmeSelection = createMultifileOmeTiffResolver({
-    tiffData: metadata['Pixels']['TiffData'],
+    tiffData: metadata["Pixels"]["TiffData"],
     baseUrl: config.baseUrl,
     headers: config.headers
   });
@@ -3397,45 +3084,40 @@ async function getPixelSourceOptionsForImage(metadata, config) {
     resolveOmeSelection,
     {
       size: {
-        z: metadata['Pixels']['SizeZ'],
-        t: metadata['Pixels']['SizeT'],
-        c: metadata['Pixels']['SizeC']
+        z: metadata["Pixels"]["SizeZ"],
+        t: metadata["Pixels"]["SizeT"],
+        c: metadata["Pixels"]["SizeC"]
       }
     }
   );
   return {
     pyramidIndexer,
-    levels: baseImage.fileDirectory.SubIFDs
-      ? baseImage.fileDirectory.SubIFDs.length + 1
-      : 1,
+    levels: baseImage.fileDirectory.SubIFDs ? baseImage.fileDirectory.SubIFDs.length + 1 : 1,
     tileSize: getTiffTileSize(baseImage),
-    axes: extractAxesFromPixels(metadata['Pixels']),
-    dtype: parsePixelDataType(metadata['Pixels']['Type']),
+    axes: extractAxesFromPixels(metadata["Pixels"]),
+    dtype: parsePixelDataType(metadata["Pixels"]["Type"]),
     meta: {
-      physicalSizes: extractPhysicalSizesfromPixels(metadata['Pixels']),
-      photometricInterpretation:
-        baseImage.fileDirectory.PhotometricInterpretation
+      physicalSizes: extractPhysicalSizesfromPixels(metadata["Pixels"]),
+      photometricInterpretation: baseImage.fileDirectory.PhotometricInterpretation
     }
   };
 }
 async function loadMultifileOmeTiff(source, options = {}) {
   assert(
     !(source instanceof File),
-    'File or Blob not supported for multifile OME-TIFF'
+    "File or Blob not supported for multifile OME-TIFF"
   );
   const url = new URL(source);
-  const text = await fetch(url).then(res => res.text());
+  const text = await fetch(url).then((res) => res.text());
   const parsed = fromString(text);
   const rois = parsed.rois || [];
   const roiRefs = parsed.roiRefs || [];
-  const roiMap = new Map(rois.map(roi => [roi.ID, roi]));
-  const images = (parsed.images || []).map(image => {
-    const imageROIRefs = roiRefs.filter(roiRef => {
+  const roiMap = new Map(rois.map((roi) => [roi.ID, roi]));
+  const images = (parsed.images || []).map((image) => {
+    const imageROIRefs = roiRefs.filter((roiRef) => {
       return true;
     });
-    const imageROIs = imageROIRefs
-      .map(roiRef => roiMap.get(roiRef.ID))
-      .filter(Boolean);
+    const imageROIs = imageROIRefs.map((roiRef) => roiMap.get(roiRef.ID)).filter(Boolean);
     const { ROIRef, ...imageWithoutRefs } = image;
     return {
       ...imageWithoutRefs,
@@ -3450,24 +3132,15 @@ async function loadMultifileOmeTiff(source, options = {}) {
     });
     const data = Array.from(
       { length: opts.levels },
-      (_, level) =>
-        new TiffPixelSource(
-          sel =>
-            opts.pyramidIndexer(
-              {
-                t: _nullishCoalesce$2(sel.t, () => 0),
-                c: _nullishCoalesce$2(sel.c, () => 0),
-                z: _nullishCoalesce$2(sel.z, () => 0)
-              },
-              level
-            ),
-          opts.dtype,
-          opts.tileSize,
-          getShapeForBinaryDownsampleLevel({ axes: opts.axes, level }),
-          opts.axes.labels,
-          opts.meta,
-          options.pool
-        )
+      (_, level) => new TiffPixelSource(
+        (sel) => opts.pyramidIndexer({ t: _nullishCoalesce$2(sel.t, () => ( 0)), c: _nullishCoalesce$2(sel.c, () => ( 0)), z: _nullishCoalesce$2(sel.z, () => ( 0)) }, level),
+        opts.dtype,
+        opts.tileSize,
+        getShapeForBinaryDownsampleLevel({ axes: opts.axes, level }),
+        opts.axes.labels,
+        opts.meta,
+        options.pool
+      )
     );
     tiffImages.push({ data, metadata });
   }
@@ -3477,14 +3150,12 @@ async function loadMultifileOmeTiff(source, options = {}) {
 function resolveMetadata(omexml, SubIFDs) {
   const rois = omexml.rois || [];
   const roiRefs = omexml.roiRefs || [];
-  const roiMap = new Map(rois.map(roi => [roi.ID, roi]));
-  const images = (omexml.images || []).map(image => {
-    const imageROIRefs = roiRefs.filter(roiRef => {
+  const roiMap = new Map(rois.map((roi) => [roi.ID, roi]));
+  const images = (omexml.images || []).map((image) => {
+    const imageROIRefs = roiRefs.filter((roiRef) => {
       return true;
     });
-    const imageROIs = imageROIRefs
-      .map(roiRef => roiMap.get(roiRef.ID))
-      .filter(Boolean);
+    const imageROIs = imageROIRefs.map((roiRef) => roiMap.get(roiRef.ID)).filter(Boolean);
     const { ROIRef, ...imageWithoutRefs } = image;
     return {
       ...imageWithoutRefs,
@@ -3500,24 +3171,24 @@ function resolveMetadata(omexml, SubIFDs) {
 function getRelativeOmeIfdIndex({ z, t, c }, image) {
   const { size, dimensionOrder } = image;
   switch (image.dimensionOrder) {
-    case 'XYZCT':
+    case "XYZCT":
       return z + size.z * c + size.z * size.c * t;
-    case 'XYZTC':
+    case "XYZTC":
       return z + size.z * t + size.z * size.t * c;
-    case 'XYCTZ':
+    case "XYCTZ":
       return c + size.c * t + size.c * size.t * z;
-    case 'XYCZT':
+    case "XYCZT":
       return c + size.c * z + size.c * size.z * t;
-    case 'XYTCZ':
+    case "XYTCZ":
       return t + size.t * c + size.t * size.c * z;
-    case 'XYTZC':
+    case "XYTZC":
       return t + size.t * z + size.t * size.z * c;
     default:
       throw new Error(`Invalid dimension order: ${dimensionOrder}`);
   }
 }
 function createSingleFileOmeTiffPyramidalIndexer(tiff, image) {
-  return createOmeImageIndexerFromResolver(sel => {
+  return createOmeImageIndexerFromResolver((sel) => {
     const withinImageIndex = getRelativeOmeIfdIndex(sel, image);
     const ifdIndex = withinImageIndex + image.ifdOffset;
     return { tiff, ifdIndex };
@@ -3535,44 +3206,38 @@ async function loadSingleFileOmeTiff(source, options = {}) {
   let imageIfdOffset = 0;
   for (const metadata of rootMeta) {
     const imageSize = {
-      z: metadata['Pixels']['SizeZ'],
-      c: metadata['Pixels']['SizeC'],
-      t: metadata['Pixels']['SizeT']
+      z: metadata["Pixels"]["SizeZ"],
+      c: metadata["Pixels"]["SizeC"],
+      t: metadata["Pixels"]["SizeT"]
     };
-    const axes = extractAxesFromPixels(metadata['Pixels']);
+    const axes = extractAxesFromPixels(metadata["Pixels"]);
     const pyramidIndexer = createSingleFileOmeTiffPyramidalIndexer(tiff, {
       size: imageSize,
       ifdOffset: imageIfdOffset,
-      dimensionOrder: metadata['Pixels']['DimensionOrder']
+      dimensionOrder: metadata["Pixels"]["DimensionOrder"]
     });
-    const dtype = parsePixelDataType(metadata['Pixels']['Type']);
+    const dtype = parsePixelDataType(metadata["Pixels"]["Type"]);
     const tileSize = getTiffTileSize(
       await pyramidIndexer({ c: 0, t: 0, z: 0 }, 0)
     );
     const meta = {
-      physicalSizes: extractPhysicalSizesfromPixels(metadata['Pixels']),
-      photometricInterpretation:
-        firstImage.fileDirectory.PhotometricInterpretation
+      physicalSizes: extractPhysicalSizesfromPixels(metadata["Pixels"]),
+      photometricInterpretation: firstImage.fileDirectory.PhotometricInterpretation
     };
-    const data = Array.from({ length: levels }, (_, level) => {
-      return new TiffPixelSource(
-        sel =>
-          pyramidIndexer(
-            {
-              t: _nullishCoalesce$2(sel.t, () => 0),
-              c: _nullishCoalesce$2(sel.c, () => 0),
-              z: _nullishCoalesce$2(sel.z, () => 0)
-            },
-            level
-          ),
-        dtype,
-        tileSize,
-        getShapeForBinaryDownsampleLevel({ axes, level }),
-        axes.labels,
-        meta,
-        pool
-      );
-    });
+    const data = Array.from(
+      { length: levels },
+      (_, level) => {
+        return new TiffPixelSource(
+          (sel) => pyramidIndexer({ t: _nullishCoalesce$2(sel.t, () => ( 0)), c: _nullishCoalesce$2(sel.c, () => ( 0)), z: _nullishCoalesce$2(sel.z, () => ( 0)) }, level),
+          dtype,
+          tileSize,
+          getShapeForBinaryDownsampleLevel({ axes, level }),
+          axes.labels,
+          meta,
+          pool
+        );
+      }
+    );
     images.push({ data, metadata });
     imageIfdOffset += imageSize.t * imageSize.z * imageSize.c;
   }
@@ -3581,39 +3246,27 @@ async function loadSingleFileOmeTiff(source, options = {}) {
 
 addDecoder(5, () => LZWDecoder);
 function isSupportedCompanionOmeTiffFile(source) {
-  return typeof source === 'string' && source.endsWith('.companion.ome');
+  return typeof source === "string" && source.endsWith(".companion.ome");
 }
 async function loadOmeTiff(source, opts = {}) {
-  const load = isSupportedCompanionOmeTiffFile(source)
-    ? loadMultifileOmeTiff
-    : loadSingleFileOmeTiff;
+  const load = isSupportedCompanionOmeTiffFile(source) ? loadMultifileOmeTiff : loadSingleFileOmeTiff;
   const loaders = await load(source, opts);
-  return opts.images === 'all' ? loaders : loaders[0];
+  return opts.images === "all" ? loaders : loaders[0];
 }
 function getImageSelectionName(imageName, imageNumber, imageSelections) {
-  return imageSelections.length === 1
-    ? imageName
-    : `${imageName}_${imageNumber.toString()}`;
+  return imageSelections.length === 1 ? imageName : `${imageName}_${imageNumber.toString()}`;
 }
 async function loadMultiTiff(sources, opts = {}) {
-  const { pool, headers = {}, name = 'MultiTiff' } = opts;
+  const { pool, headers = {}, name = "MultiTiff" } = opts;
   const tiffImage = [];
   const channelNames = [];
   for (const source of sources) {
     const [s, file] = source;
     const imageSelections = Array.isArray(s) ? s : [s];
-    if (typeof file === 'string') {
+    if (typeof file === "string") {
       const parsedFilename = parseFilename(file);
-      const extension = _optionalChain$3([
-        parsedFilename,
-        'access',
-        _12 => _12.extension,
-        'optionalAccess',
-        _13 => _13.toLowerCase,
-        'call',
-        _14 => _14()
-      ]);
-      if (extension === 'tif' || extension === 'tiff') {
+      const extension = _optionalChain$3([parsedFilename, 'access', _12 => _12.extension, 'optionalAccess', _13 => _13.toLowerCase, 'call', _14 => _14()]);
+      if (extension === "tif" || extension === "tiff") {
         const tiffImageName = parsedFilename.name;
         if (tiffImageName) {
           const curImage = await createGeoTiff(file, {
@@ -3660,31 +3313,21 @@ async function loadMultiTiff(sources, opts = {}) {
   if (tiffImage.length > 0) {
     return load$2(name, tiffImage, opts.channelNames || channelNames, pool);
   }
-  throw new Error('Unable to load image from provided TiffFolder source.');
+  throw new Error("Unable to load image from provided TiffFolder source.");
 }
 
 var __defProp$1 = Object.defineProperty;
-var __defNormalProp$1 = (obj, key, value) =>
-  key in obj
-    ? __defProp$1(obj, key, {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value
-      })
-    : (obj[key] = value);
+var __defNormalProp$1 = (obj, key, value) => key in obj ? __defProp$1(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __publicField$1 = (obj, key, value) => {
-  __defNormalProp$1(obj, typeof key !== 'symbol' ? key + '' : key, value);
+  __defNormalProp$1(obj, typeof key !== "symbol" ? key + "" : key, value);
   return value;
 };
 function joinUrlParts(...args) {
-  return args
-    .map((part, i) => {
-      if (i === 0) return part.trim().replace(/[/]*$/g, '');
-      return part.trim().replace(/(^[/]*|[/]*$)/g, '');
-    })
-    .filter(x => x.length)
-    .join('/');
+  return args.map((part, i) => {
+    if (i === 0)
+      return part.trim().replace(/[/]*$/g, "");
+    return part.trim().replace(/(^[/]*|[/]*$)/g, "");
+  }).filter((x) => x.length).join("/");
 }
 class ReadOnlyStore {
   async keys() {
@@ -3694,15 +3337,15 @@ class ReadOnlyStore {
     return false;
   }
   async setItem() {
-    console.warn('Cannot write to read-only store.');
+    console.warn("Cannot write to read-only store.");
     return false;
   }
 }
 class FileStore extends ReadOnlyStore {
-  constructor(fileMap, rootPrefix = '') {
+  constructor(fileMap, rootPrefix = "") {
     super();
-    __publicField$1(this, '_map');
-    __publicField$1(this, '_rootPrefix');
+    __publicField$1(this, "_map");
+    __publicField$1(this, "_rootPrefix");
     this._map = fileMap;
     this._rootPrefix = rootPrefix;
   }
@@ -3726,7 +3369,7 @@ function isOmeZarr(dataShape, Pixels) {
 }
 function guessBioformatsLabels({ shape }, { Pixels }) {
   if (isOmeZarr(shape, Pixels)) {
-    return getLabels('XYZCT');
+    return getLabels("XYZCT");
   }
   const labels = getLabels(Pixels.DimensionOrder);
   labels.forEach((lower, i) => {
@@ -3736,47 +3379,47 @@ function guessBioformatsLabels({ shape }, { Pixels }) {
       throw Error(`Dimension ${label} is invalid for OME-XML.`);
     }
     if (shape[i] !== xmlSize) {
-      throw Error('Dimension mismatch between zarr source and OME-XML.');
+      throw Error("Dimension mismatch between zarr source and OME-XML.");
     }
   });
   return labels;
 }
 function getRootPrefix(files, rootName) {
-  const first = files.find(f => f.path.indexOf(rootName) > 0);
+  const first = files.find((f) => f.path.indexOf(rootName) > 0);
   if (!first) {
-    throw Error('Could not find root in store.');
+    throw Error("Could not find root in store.");
   }
   const prefixLength = first.path.indexOf(rootName) + rootName.length;
   return first.path.slice(0, prefixLength);
 }
 function isAxis(axisOrLabel) {
-  return typeof axisOrLabel[0] !== 'string';
+  return typeof axisOrLabel[0] !== "string";
 }
 function castLabels(dimnames) {
   return dimnames;
 }
-async function loadMultiscales(store, path = '') {
+async function loadMultiscales(store, path = "") {
   const location = zarr.root(store);
   const groupLocation = path ? location.resolve(path) : location;
-  const grp = await zarr.open(groupLocation, { kind: 'group' });
+  const grp = await zarr.open(groupLocation, { kind: "group" });
   const unknownAttrs = await grp.attrs;
-  const ngff_v0_5_or_later = 'ome' in unknownAttrs;
+  const ngff_v0_5_or_later = "ome" in unknownAttrs;
   const rootAttrs = ngff_v0_5_or_later ? unknownAttrs.ome : unknownAttrs;
-  let paths = ['0'];
-  let labels = castLabels(['t', 'c', 'z', 'y', 'x']);
-  if ('multiscales' in rootAttrs) {
+  let paths = ["0"];
+  let labels = castLabels(["t", "c", "z", "y", "x"]);
+  if ("multiscales" in rootAttrs) {
     const { datasets, axes } = rootAttrs.multiscales[0];
-    paths = datasets.map(d => d.path);
+    paths = datasets.map((d) => d.path);
     if (axes) {
       if (isAxis(axes)) {
-        labels = castLabels(axes.map(axis => axis.name));
+        labels = castLabels(axes.map((axis) => axis.name));
       } else {
         labels = castLabels(axes);
       }
     }
   }
   const data = await Promise.all(
-    paths.map(p => zarr.open(groupLocation.resolve(p), { kind: 'array' }))
+    paths.map((p) => zarr.open(groupLocation.resolve(p), { kind: "array" }))
   );
   return {
     data,
@@ -3794,9 +3437,9 @@ function guessTileSize(arr) {
 function getIndexer(labels) {
   const labelSet = new Set(labels);
   if (labelSet.size !== labels.length) {
-    throw new Error('Labels must be unique');
+    throw new Error("Labels must be unique");
   }
-  return sel => {
+  return (sel) => {
     if (Array.isArray(sel)) {
       return [...sel];
     }
@@ -3813,36 +3456,29 @@ function getIndexer(labels) {
 }
 
 var __defProp = Object.defineProperty;
-var __defNormalProp = (obj, key, value) =>
-  key in obj
-    ? __defProp(obj, key, {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value
-      })
-    : (obj[key] = value);
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __publicField = (obj, key, value) => {
-  __defNormalProp(obj, typeof key !== 'symbol' ? key + '' : key, value);
+  __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
   return value;
 };
 const DTYPE_LOOKUP = {
-  u1: 'Uint8',
-  u2: 'Uint16',
-  u4: 'Uint32',
-  f4: 'Float32',
-  f8: 'Float64',
-  i1: 'Int8',
-  i2: 'Int16',
-  i4: 'Int32'
+  u1: "Uint8",
+  u2: "Uint16",
+  u4: "Uint32",
+  f4: "Float32",
+  f8: "Float64",
+  i1: "Int8",
+  i2: "Int16",
+  i4: "Int32"
 };
-class BoundsCheckError extends Error {}
+class BoundsCheckError extends Error {
+}
 class ZarrPixelSource {
   constructor(data, labels, tileSize) {
     this.labels = labels;
     this.tileSize = tileSize;
-    __publicField(this, '_data');
-    __publicField(this, '_indexer');
+    __publicField(this, "_data");
+    __publicField(this, "_indexer");
     this._indexer = getIndexer(labels);
     this._data = data;
   }
@@ -3880,28 +3516,25 @@ class ZarrPixelSource {
       Math.min((y + 1) * this.tileSize, height)
     ];
     if (xStart === xStop || yStart === yStop) {
-      throw new BoundsCheckError('Tile slice is zero-sized.');
+      throw new BoundsCheckError("Tile slice is zero-sized.");
     }
     if (xStart < 0 || yStart < 0 || xStop > width || yStop > height) {
-      throw new BoundsCheckError('Tile slice is out of bounds.');
+      throw new BoundsCheckError("Tile slice is out of bounds.");
     }
     return [zarr.slice(xStart, xStop), zarr.slice(yStart, yStop)];
   }
   async _getRaw(selection, getOptions) {
-    const signal = _optionalChain$3([
-      getOptions,
-      'optionalAccess',
-      _15 => _15.storeOptions,
-      'optionalAccess',
-      _16 => _16.signal
-    ]);
+    const signal = _optionalChain$3([getOptions, 'optionalAccess', _15 => _15.storeOptions, 'optionalAccess', _16 => _16.signal]);
     const result = await zarr.get(this._data, selection, signal);
-    if (typeof result !== 'object') {
-      throw new Error('Expected object from zarr.get');
+    if (typeof result !== "object") {
+      throw new Error("Expected object from zarr.get");
     }
     return result;
   }
-  async getRaster({ selection, signal }) {
+  async getRaster({
+    selection,
+    signal
+  }) {
     const sel = this._chunkIndex(selection, { x: null, y: null });
     const result = await this._getRaw(sel, { storeOptions: { signal } });
     const {
@@ -3930,7 +3563,7 @@ class ZarrPixelSource {
 
 async function load$1(root, xmlSource) {
   let xmlSourceText;
-  if (typeof xmlSource !== 'string') {
+  if (typeof xmlSource !== "string") {
     xmlSourceText = await xmlSource.text();
   } else {
     xmlSourceText = xmlSource;
@@ -3939,22 +3572,20 @@ async function load$1(root, xmlSource) {
   const images = parsed.images || [];
   const rois = parsed.rois || [];
   const roiRefs = parsed.roiRefs || [];
-  const roiMap = new Map(rois.map(roi => [roi.ID, roi]));
+  const roiMap = new Map(rois.map((roi) => [roi.ID, roi]));
   let imgMeta = images[0];
   if (imgMeta) {
-    const imageROIRefs = roiRefs.filter(roiRef => {
+    const imageROIRefs = roiRefs.filter((roiRef) => {
       return true;
     });
-    const imageROIs = imageROIRefs
-      .map(roiRef => roiMap.get(roiRef.ID))
-      .filter(Boolean);
+    const imageROIs = imageROIRefs.map((roiRef) => roiMap.get(roiRef.ID)).filter(Boolean);
     const { ROIRef: _omitROIRef, ...imgWithoutRefs } = imgMeta;
     imgMeta = { ...imgWithoutRefs, ROIs: imageROIs };
   }
-  const { data } = await loadMultiscales(root, '0');
+  const { data } = await loadMultiscales(root, "0");
   const labels = guessBioformatsLabels(data[0], imgMeta);
   const tileSize = guessTileSize(data[0]);
-  const pyramid = data.map(arr => new ZarrPixelSource(arr, labels, tileSize));
+  const pyramid = data.map((arr) => new ZarrPixelSource(arr, labels, tileSize));
   return {
     data: pyramid,
     metadata: imgMeta
@@ -3964,7 +3595,7 @@ async function load$1(root, xmlSource) {
 async function load(store) {
   const { data, rootAttrs, labels } = await loadMultiscales(store);
   const tileSize = guessTileSize(data[0]);
-  const pyramid = data.map(arr => new ZarrPixelSource(arr, labels, tileSize));
+  const pyramid = data.map((arr) => new ZarrPixelSource(arr, labels, tileSize));
   return {
     data: pyramid,
     metadata: rootAttrs
@@ -3973,29 +3604,21 @@ async function load(store) {
 
 async function loadOmeZarr(source, options = {}) {
   const store = new FetchStore(source, options.fetchOptions);
-  if (
-    _optionalChain$3([options, 'optionalAccess', _17 => _17.type]) !==
-    'multiscales'
-  ) {
-    throw Error('Only multiscale OME-Zarr is supported.');
+  if (_optionalChain$3([options, 'optionalAccess', _17 => _17.type]) !== "multiscales") {
+    throw Error("Only multiscale OME-Zarr is supported.");
   }
   return load(store);
 }
-async function _DEPRECATED_loadBioformatsZarrWithPaths(
-  source,
-  metadataPath,
-  zarrDir,
-  options = {}
-) {
-  if (typeof source === 'string') {
-    const url = source.endsWith('/') ? source.slice(0, -1) : source;
+async function _DEPRECATED_loadBioformatsZarrWithPaths(source, metadataPath, zarrDir, options = {}) {
+  if (typeof source === "string") {
+    const url = source.endsWith("/") ? source.slice(0, -1) : source;
     const store2 = new FetchStore(`${url}/${zarrDir}`, options.fetchOptions);
     const xmlSource = await fetch(
       `${url}/${metadataPath}`,
       options.fetchOptions
     );
     if (!xmlSource.ok) {
-      throw Error('No OME-XML metadata found for store.');
+      throw Error("No OME-XML metadata found for store.");
     }
     return load$1(store2, xmlSource);
   }
@@ -4009,7 +3632,7 @@ async function _DEPRECATED_loadBioformatsZarrWithPaths(
     }
   }
   if (!xmlFile) {
-    throw Error('No OME-XML metadata found for store.');
+    throw Error("No OME-XML metadata found for store.");
   }
   const store = new FileStore(fMap, getRootPrefix(source, zarrDir));
   return load$1(store, xmlFile);
@@ -4018,47 +3641,20 @@ async function DEPRECATED_loadBioformatsZarr(source, options = {}) {
   return Promise.any([
     _DEPRECATED_loadBioformatsZarrWithPaths(
       source,
-      'METADATA.ome.xml',
-      'data.zarr',
+      "METADATA.ome.xml",
+      "data.zarr",
       options
     ),
     _DEPRECATED_loadBioformatsZarrWithPaths(
       source,
-      'OME/METADATA.ome.xml',
-      '',
+      "OME/METADATA.ome.xml",
+      "",
       options
     )
   ]);
 }
 
-function _nullishCoalesce$1(lhs, rhsFn) {
-  if (lhs != null) {
-    return lhs;
-  } else {
-    return rhsFn();
-  }
-}
-function _optionalChain$2(ops) {
-  let lastAccessLHS = undefined;
-  let value = ops[0];
-  let i = 1;
-  while (i < ops.length) {
-    const op = ops[i];
-    const fn = ops[i + 1];
-    i += 2;
-    if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) {
-      return undefined;
-    }
-    if (op === 'access' || op === 'optionalAccess') {
-      lastAccessLHS = value;
-      value = fn(value);
-    } else if (op === 'call' || op === 'optionalCall') {
-      value = fn((...args) => value.call(lastAccessLHS, ...args));
-      lastAccessLHS = undefined;
-    }
-  }
-  return value;
-}
+function _nullishCoalesce$1(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$2(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 function range(len) {
   return [...Array(len).keys()];
 }
@@ -4069,8 +3665,7 @@ function padWithDefault(arr, defaultValue, padWidth) {
   return arr;
 }
 function getDtypeValues(dtype) {
-  const normalizedDtype =
-    dtype.charAt(0).toUpperCase() + dtype.slice(1).toLowerCase();
+  const normalizedDtype = dtype.charAt(0).toUpperCase() + dtype.slice(1).toLowerCase();
   const values = DTYPE_VALUES[normalizedDtype];
   if (!values) {
     const valid = Object.keys(DTYPE_VALUES);
@@ -4084,14 +3679,12 @@ function padContrastLimits({
   domain,
   dtype
 }) {
-  const maxSliderValue =
-    _optionalChain$2([domain, 'optionalAccess', _2 => _2[1]]) ||
-    getDtypeValues(dtype).max;
-  const newContrastLimits = contrastLimits.map((slider, i) =>
-    channelsVisible[i]
-      ? slider
-      : /** @type {[number, number]} */
-        [maxSliderValue, maxSliderValue]
+  const maxSliderValue = _optionalChain$2([domain, 'optionalAccess', _2 => _2[1]]) || getDtypeValues(dtype).max;
+  const newContrastLimits = contrastLimits.map(
+    (slider, i) => channelsVisible[i] ? slider : (
+      /** @type {[number, number]} */
+      [maxSliderValue, maxSliderValue]
+    )
   );
   const padSize = MAX_CHANNELS - newContrastLimits.length;
   if (padSize < 0) {
@@ -4107,21 +3700,8 @@ function padContrastLimits({
   return paddedContrastLimits;
 }
 function getPhysicalSizeScalingMatrix(loader) {
-  const { x, y, z } = _nullishCoalesce$1(
-    _optionalChain$2([
-      loader,
-      'optionalAccess',
-      _3 => _3.meta,
-      'optionalAccess',
-      _4 => _4.physicalSizes
-    ]),
-    () => ({})
-  );
-  if (
-    _optionalChain$2([x, 'optionalAccess', _5 => _5.size]) &&
-    _optionalChain$2([y, 'optionalAccess', _6 => _6.size]) &&
-    _optionalChain$2([z, 'optionalAccess', _7 => _7.size])
-  ) {
+  const { x, y, z } = _nullishCoalesce$1(_optionalChain$2([loader, 'optionalAccess', _3 => _3.meta, 'optionalAccess', _4 => _4.physicalSizes]), () => ( {}));
+  if (_optionalChain$2([x, 'optionalAccess', _5 => _5.size]) && _optionalChain$2([y, 'optionalAccess', _6 => _6.size]) && _optionalChain$2([z, 'optionalAccess', _7 => _7.size])) {
     const min = Math.min(z.size, x.size, y.size);
     const ratio = [x.size / min, y.size / min, z.size / min];
     return new Matrix4().scale(ratio);
@@ -4146,43 +3726,43 @@ const TARGETS = [1, 2, 3, 4, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1e3];
 const MIN_TARGET = TARGETS[0];
 const MAX_TARGET = TARGETS[TARGETS.length - 1];
 const SI_PREFIXES = [
-  { symbol: 'Y', exponent: 24 },
-  { symbol: 'Z', exponent: 21 },
-  { symbol: 'E', exponent: 18 },
-  { symbol: 'P', exponent: 15 },
-  { symbol: 'T', exponent: 12 },
-  { symbol: 'G', exponent: 9 },
-  { symbol: 'M', exponent: 6 },
-  { symbol: 'k', exponent: 3 },
-  { symbol: 'h', exponent: 2 },
-  { symbol: 'da', exponent: 1 },
-  { symbol: '', exponent: 0 },
-  { symbol: 'd', exponent: -1 },
-  { symbol: 'c', exponent: -2 },
-  { symbol: 'm', exponent: -3 },
-  { symbol: '\xB5', exponent: -6 },
-  { symbol: 'n', exponent: -9 },
-  { symbol: 'p', exponent: -12 },
-  { symbol: 'f', exponent: -15 },
-  { symbol: 'a', exponent: -18 },
-  { symbol: 'z', exponent: -21 },
-  { symbol: 'y', exponent: -24 }
+  { symbol: "Y", exponent: 24 },
+  { symbol: "Z", exponent: 21 },
+  { symbol: "E", exponent: 18 },
+  { symbol: "P", exponent: 15 },
+  { symbol: "T", exponent: 12 },
+  { symbol: "G", exponent: 9 },
+  { symbol: "M", exponent: 6 },
+  { symbol: "k", exponent: 3 },
+  { symbol: "h", exponent: 2 },
+  { symbol: "da", exponent: 1 },
+  { symbol: "", exponent: 0 },
+  { symbol: "d", exponent: -1 },
+  { symbol: "c", exponent: -2 },
+  { symbol: "m", exponent: -3 },
+  { symbol: "\xB5", exponent: -6 },
+  { symbol: "n", exponent: -9 },
+  { symbol: "p", exponent: -12 },
+  { symbol: "f", exponent: -15 },
+  { symbol: "a", exponent: -18 },
+  { symbol: "z", exponent: -21 },
+  { symbol: "y", exponent: -24 }
 ];
 function sizeToMeters(size, unit) {
-  if (!unit || unit === 'm') {
+  if (!unit || unit === "m") {
     return size;
   }
   if (unit.length > 1) {
     let unitPrefix = unit.substring(0, unit.length - 1);
-    if (unitPrefix === 'u') {
-      unitPrefix = '\xB5';
+    if (unitPrefix === "u") {
+      unitPrefix = "\xB5";
     }
-    const unitObj = SI_PREFIXES.find(p => p.symbol === unitPrefix);
+    const unitObj = SI_PREFIXES.find((p) => p.symbol === unitPrefix);
     if (unitObj) {
       return size * 10 ** unitObj.exponent;
     }
   }
-  throw new Error('Received unknown unit');
+  throw new Error("Received unknown unit");
 }
 function snapValue(value) {
   let magnitude = 0;
@@ -4190,22 +3770,22 @@ function snapValue(value) {
     magnitude = Math.floor(Math.log10(value));
   }
   let snappedUnit = SI_PREFIXES.find(
-    p => p.exponent % 3 === 0 && p.exponent <= magnitude
+    (p) => p.exponent % 3 === 0 && p.exponent <= magnitude
   );
   let adjustedValue = value / 10 ** snappedUnit.exponent;
   if (adjustedValue > 500 && adjustedValue <= 1e3) {
     snappedUnit = SI_PREFIXES.find(
-      p => p.exponent % 3 === 0 && p.exponent <= magnitude + 3
+      (p) => p.exponent % 3 === 0 && p.exponent <= magnitude + 3
     );
     adjustedValue = value / 10 ** snappedUnit.exponent;
   }
-  const targetNewUnits = TARGETS.find(t => t > adjustedValue);
+  const targetNewUnits = TARGETS.find((t) => t > adjustedValue);
   const targetOrigUnits = targetNewUnits * 10 ** snappedUnit.exponent;
   return [targetOrigUnits, targetNewUnits, snappedUnit.symbol];
 }
 function addAlpha(array) {
   if (!(array instanceof Uint8Array)) {
-    throw new Error('Expected Uint8Array');
+    throw new Error("Expected Uint8Array");
   }
   const alphaArray = new Uint8Array(array.length + array.length / 3);
   for (let i = 0; i < array.length / 3; i += 1) {
@@ -4230,15 +3810,12 @@ const PHOTOMETRIC_INTERPRETATIONS = {
 };
 const defaultProps$8 = {
   ...BitmapLayer$1.defaultProps,
-  pickable: { type: 'boolean', value: true, compare: true },
+  pickable: { type: "boolean", value: true, compare: true },
   coordinateSystem: COORDINATE_SYSTEM.CARTESIAN
 };
-const getPhotometricInterpretationShader = (
-  photometricInterpretation,
-  transparentColorInHook
-) => {
-  const useTransparentColor = transparentColorInHook ? 'true' : 'false';
-  const transparentColorVector = `vec3(${(transparentColorInHook || [0, 0, 0]).map(i => String(i / 255)).join(',')})`;
+const getPhotometricInterpretationShader = (photometricInterpretation, transparentColorInHook) => {
+  const useTransparentColor = transparentColorInHook ? "true" : "false";
+  const transparentColorVector = `vec3(${(transparentColorInHook || [0, 0, 0]).map((i) => String(i / 255)).join(",")})`;
   switch (photometricInterpretation) {
     case PHOTOMETRIC_INTERPRETATIONS.RGB:
       return `color[3] = (${useTransparentColor} && (color.rgb == ${transparentColorVector})) ? 0.0 : color.a;`;
@@ -4261,12 +3838,12 @@ const getPhotometricInterpretationShader = (
         `;
     default:
       console.error(
-        'Unsupported photometric interpretation or none provided.  No transformation will be done to image data'
+        "Unsupported photometric interpretation or none provided.  No transformation will be done to image data"
       );
-      return '';
+      return "";
   }
 };
-const getTransparentColor = photometricInterpretation => {
+const getTransparentColor = (photometricInterpretation) => {
   switch (photometricInterpretation) {
     case PHOTOMETRIC_INTERPRETATIONS.RGB:
       return [0, 0, 0, 0];
@@ -4278,7 +3855,7 @@ const getTransparentColor = photometricInterpretation => {
       return [16, 128, 128, 0];
     default:
       console.error(
-        'Unsupported photometric interpretation or none provided.  No transformation will be done to image data'
+        "Unsupported photometric interpretation or none provided.  No transformation will be done to image data"
       );
       return [0, 0, 0, 0];
   }
@@ -4294,10 +3871,10 @@ class BitmapLayerWrapper extends BitmapLayer$1 {
       ...this.getShaders(),
       id: this.props.id,
       bufferLayout: this.getAttributeManager().getBufferLayouts(),
-      topology: 'triangle-list',
+      topology: "triangle-list",
       isInstanced: false,
       inject: {
-        'fs:DECKGL_FILTER_COLOR': photometricInterpretationShader
+        "fs:DECKGL_FILTER_COLOR": photometricInterpretationShader
       }
     });
   }
@@ -4329,27 +3906,27 @@ const BitmapLayer = class extends CompositeLayer {
     });
   }
 };
-BitmapLayer.layerName = 'BitmapLayer';
+BitmapLayer.layerName = "BitmapLayer";
 BitmapLayer.PHOTOMETRIC_INTERPRETATIONS = PHOTOMETRIC_INTERPRETATIONS;
 BitmapLayer.defaultProps = {
   ...defaultProps$8,
   // We don't want this layer to bind the texture so the type should not be `image`.
-  image: { type: 'object', value: {}, compare: true },
-  transparentColor: { type: 'array', value: [0, 0, 0], compare: true },
-  photometricInterpretation: { type: 'number', value: 2, compare: true }
+  image: { type: "object", value: {}, compare: true },
+  transparentColor: { type: "array", value: [0, 0, 0], compare: true },
+  photometricInterpretation: { type: "number", value: 2, compare: true }
 };
 BitmapLayerWrapper.defaultProps = defaultProps$8;
-BitmapLayerWrapper.layerName = 'BitmapLayerWrapper';
+BitmapLayerWrapper.layerName = "BitmapLayerWrapper";
 
 const fs$2 = `float apply_contrast_limits(float intensity, vec2 contrastLimits) {
     return  max(0., (intensity - contrastLimits[0]) / max(0.0005, (contrastLimits[1] - contrastLimits[0])));
 }
 `;
 const channels = {
-  name: 'channel-intensity',
+  name: "channel-intensity",
   defines: {
-    SAMPLER_TYPE: 'usampler2D',
-    COLORMAP_FUNCTION: ''
+    SAMPLER_TYPE: "usampler2D",
+    COLORMAP_FUNCTION: ""
   },
   fs: fs$2
 };
@@ -4422,27 +3999,27 @@ void main(void) {
 
 const coreShaderModule = { fs: fs$1, vs: vs$1 };
 function getRenderingAttrs$1(dtype, interpolation) {
-  const isLinear = interpolation === 'linear';
-  const values = getDtypeValues(isLinear ? 'Float32' : dtype);
+  const isLinear = interpolation === "linear";
+  const values = getDtypeValues(isLinear ? "Float32" : dtype);
   return {
     shaderModule: coreShaderModule,
     filter: interpolation,
-    cast: isLinear ? data => new Float32Array(data) : data => data,
+    cast: isLinear ? (data) => new Float32Array(data) : (data) => data,
     ...values
   };
 }
 
 const defaultProps$7 = {
-  pickable: { type: 'boolean', value: true, compare: true },
+  pickable: { type: "boolean", value: true, compare: true },
   coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
-  channelData: { type: 'object', value: {}, compare: true },
-  bounds: { type: 'array', value: [0, 0, 1, 1], compare: true },
-  contrastLimits: { type: 'array', value: [], compare: true },
-  channelsVisible: { type: 'array', value: [], compare: true },
-  dtype: { type: 'string', value: 'Uint16', compare: true },
+  channelData: { type: "object", value: {}, compare: true },
+  bounds: { type: "array", value: [0, 0, 1, 1], compare: true },
+  contrastLimits: { type: "array", value: [], compare: true },
+  channelsVisible: { type: "array", value: [], compare: true },
+  dtype: { type: "string", value: "Uint16", compare: true },
   interpolation: {
-    type: 'string',
-    value: 'nearest',
+    type: "string",
+    value: "nearest",
     compare: true
   }
 };
@@ -4454,11 +4031,10 @@ const XRLayer = class extends Layer {
   getShaders() {
     const { dtype, interpolation } = this.props;
     const { shaderModule, sampler } = getRenderingAttrs$1(dtype, interpolation);
-    const extensionDefinesDeckglProcessIntensity =
-      this._isHookDefinedByExtensions('fs:DECKGL_PROCESS_INTENSITY');
+    const extensionDefinesDeckglProcessIntensity = this._isHookDefinedByExtensions("fs:DECKGL_PROCESS_INTENSITY");
     const newChannelsModule = { ...channels, inject: {} };
     if (!extensionDefinesDeckglProcessIntensity) {
-      newChannelsModule.inject['fs:DECKGL_PROCESS_INTENSITY'] = `
+      newChannelsModule.inject["fs:DECKGL_PROCESS_INTENSITY"] = `
         intensity = apply_contrast_limits(intensity, contrastLimits);
       `;
     }
@@ -4472,28 +4048,13 @@ const XRLayer = class extends Layer {
   }
   _isHookDefinedByExtensions(hookName) {
     const { extensions } = this.props;
-    return _optionalChain$2([
-      extensions,
-      'optionalAccess',
-      _8 => _8.some,
-      'call',
-      _9 =>
-        _9(e => {
-          const shaders = e.getShaders();
-          const { inject = {}, modules = [] } = shaders;
-          const definesInjection = inject[hookName];
-          const moduleDefinesInjection = modules.some(m =>
-            _optionalChain$2([
-              m,
-              'optionalAccess',
-              _10 => _10.inject,
-              'access',
-              _11 => _11[hookName]
-            ])
-          );
-          return definesInjection || moduleDefinesInjection;
-        })
-    ]);
+    return _optionalChain$2([extensions, 'optionalAccess', _8 => _8.some, 'call', _9 => _9((e) => {
+      const shaders = e.getShaders();
+      const { inject = {}, modules = [] } = shaders;
+      const definesInjection = inject[hookName];
+      const moduleDefinesInjection = modules.some((m) => _optionalChain$2([m, 'optionalAccess', _10 => _10.inject, 'access', _11 => _11[hookName]]));
+      return definesInjection || moduleDefinesInjection;
+    })]);
   }
   /**
    * This function initializes the internal state.
@@ -4508,7 +4069,7 @@ const XRLayer = class extends Layer {
     attributeManager.add({
       positions: {
         size: 3,
-        type: 'float64',
+        type: "float64",
         fp64: this.use64bitPositions(),
         update: this.calculatePositions,
         noAlloc: true
@@ -4519,10 +4080,8 @@ const XRLayer = class extends Layer {
       positions: new Float64Array(12)
     });
     const shaderAssembler = ShaderAssembler.getDefaultShaderAssembler();
-    const mutateStr =
-      'fs:DECKGL_MUTATE_COLOR(inout vec4 rgba, float intensity0, float intensity1, float intensity2, float intensity3, float intensity4, float intensity5, vec2 vTexCoord)';
-    const processStr =
-      'fs:DECKGL_PROCESS_INTENSITY(inout float intensity, vec2 contrastLimits, int channelIndex)';
+    const mutateStr = "fs:DECKGL_MUTATE_COLOR(inout vec4 rgba, float intensity0, float intensity1, float intensity2, float intensity3, float intensity4, float intensity5, vec2 vTexCoord)";
+    const processStr = "fs:DECKGL_PROCESS_INTENSITY(inout float intensity, vec2 contrastLimits, int channelIndex)";
     if (!shaderAssembler._hookFunctions.includes(mutateStr)) {
       shaderAssembler.addShaderHook(mutateStr);
     }
@@ -4536,15 +4095,7 @@ const XRLayer = class extends Layer {
   finalizeState() {
     super.finalizeState();
     if (this.state.textures) {
-      Object.values(this.state.textures).forEach(tex =>
-        _optionalChain$2([
-          tex,
-          'optionalAccess',
-          _12 => _12.delete,
-          'call',
-          _13 => _13()
-        ])
-      );
+      Object.values(this.state.textures).forEach((tex) => _optionalChain$2([tex, 'optionalAccess', _12 => _12.delete, 'call', _13 => _13()]));
     }
   }
   /**
@@ -4553,10 +4104,7 @@ const XRLayer = class extends Layer {
    */
   updateState({ props, oldProps, changeFlags, ...rest }) {
     super.updateState({ props, oldProps, changeFlags, ...rest });
-    if (
-      changeFlags.extensionsChanged ||
-      props.interpolation !== oldProps.interpolation
-    ) {
+    if (changeFlags.extensionsChanged || props.interpolation !== oldProps.interpolation) {
       const { device } = this.context;
       if (this.state.model) {
         this.state.model.destroy();
@@ -4564,29 +4112,12 @@ const XRLayer = class extends Layer {
       this.setState({ model: this._getModel(device) });
       this.getAttributeManager().invalidateAll();
     }
-    if (
-      (props.channelData !== oldProps.channelData &&
-        _optionalChain$2([
-          props,
-          'access',
-          _14 => _14.channelData,
-          'optionalAccess',
-          _15 => _15.data
-        ]) !==
-          _optionalChain$2([
-            oldProps,
-            'access',
-            _16 => _16.channelData,
-            'optionalAccess',
-            _17 => _17.data
-          ])) ||
-      props.interpolation !== oldProps.interpolation
-    ) {
+    if (props.channelData !== oldProps.channelData && _optionalChain$2([props, 'access', _14 => _14.channelData, 'optionalAccess', _15 => _15.data]) !== _optionalChain$2([oldProps, 'access', _16 => _16.channelData, 'optionalAccess', _17 => _17.data]) || props.interpolation !== oldProps.interpolation) {
       this.loadChannelTextures(props.channelData);
     }
     const attributeManager = this.getAttributeManager();
     if (props.bounds !== oldProps.bounds) {
-      attributeManager.invalidate('positions');
+      attributeManager.invalidate("positions");
     }
   }
   /**
@@ -4600,7 +4131,7 @@ const XRLayer = class extends Layer {
       ...this.getShaders(),
       id: this.props.id,
       geometry: new Geometry({
-        topology: 'triangle-list',
+        topology: "triangle-list",
         vertexCount: 6,
         indices: new Uint16Array([0, 1, 3, 1, 2, 3]),
         attributes: {
@@ -4642,7 +4173,7 @@ const XRLayer = class extends Layer {
     const { textures, model } = this.state;
     if (textures && model) {
       const { contrastLimits, domain, dtype, channelsVisible } = this.props;
-      const numTextures = Object.values(textures).filter(t => t).length;
+      const numTextures = Object.values(textures).filter((t) => t).length;
       const paddedContrastLimits = padContrastLimits({
         contrastLimits: contrastLimits.slice(0, numTextures),
         channelsVisible: channelsVisible.slice(0, numTextures),
@@ -4673,21 +4204,9 @@ const XRLayer = class extends Layer {
       channel5: null
     };
     if (this.state.textures) {
-      Object.values(this.state.textures).forEach(tex =>
-        _optionalChain$2([
-          tex,
-          'optionalAccess',
-          _18 => _18.delete,
-          'call',
-          _19 => _19()
-        ])
-      );
+      Object.values(this.state.textures).forEach((tex) => _optionalChain$2([tex, 'optionalAccess', _18 => _18.delete, 'call', _19 => _19()]));
     }
-    if (
-      channelData &&
-      Object.keys(channelData).length > 0 &&
-      channelData.data
-    ) {
+    if (channelData && Object.keys(channelData).length > 0 && channelData.data) {
       channelData.data.forEach((d, i) => {
         textures[`channel${i}`] = this.dataToTexture(
           d,
@@ -4696,8 +4215,10 @@ const XRLayer = class extends Layer {
         );
       }, this);
       for (const key in textures) {
-        if (!textures.channel0) throw new Error('Bad texture state!');
-        if (!textures[key]) textures[key] = textures.channel0;
+        if (!textures.channel0)
+          throw new Error("Bad texture state!");
+        if (!textures[key])
+          textures[key] = textures.channel0;
       }
       this.setState({ textures });
     }
@@ -4711,17 +4232,8 @@ const XRLayer = class extends Layer {
     return this.context.device.createTexture({
       width,
       height,
-      dimension: '2d',
-      data: _nullishCoalesce$1(
-        _optionalChain$2([
-          attrs,
-          'access',
-          _20 => _20.cast,
-          'optionalCall',
-          _21 => _21(data)
-        ]),
-        () => data
-      ),
+      dimension: "2d",
+      data: _nullishCoalesce$1(_optionalChain$2([attrs, 'access', _20 => _20.cast, 'optionalCall', _21 => _21(data)]), () => ( data)),
       // we don't want or need mimaps
       mipmaps: false,
       sampler: {
@@ -4729,42 +4241,42 @@ const XRLayer = class extends Layer {
         minFilter: attrs.filter,
         magFilter: attrs.filter,
         // CLAMP_TO_EDGE to remove tile artifacts
-        addressModeU: 'clamp-to-edge',
-        addressModeV: 'clamp-to-edge'
+        addressModeU: "clamp-to-edge",
+        addressModeV: "clamp-to-edge"
       },
       format: attrs.format
     });
   }
 };
-XRLayer.layerName = 'XRLayer';
+XRLayer.layerName = "XRLayer";
 XRLayer.defaultProps = defaultProps$7;
 
 const defaultProps$6 = {
-  pickable: { type: 'boolean', value: true, compare: true },
+  pickable: { type: "boolean", value: true, compare: true },
   coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
-  contrastLimits: { type: 'array', value: [], compare: true },
-  channelsVisible: { type: 'array', value: [], compare: true },
-  selections: { type: 'array', value: [], compare: true },
-  domain: { type: 'array', value: [], compare: true },
-  viewportId: { type: 'string', value: '', compare: true },
+  contrastLimits: { type: "array", value: [], compare: true },
+  channelsVisible: { type: "array", value: [], compare: true },
+  selections: { type: "array", value: [], compare: true },
+  domain: { type: "array", value: [], compare: true },
+  viewportId: { type: "string", value: "", compare: true },
   loader: {
-    type: 'object',
+    type: "object",
     value: {
       getRaster: async () => ({ data: [], height: 0, width: 0 }),
-      dtype: 'Uint16',
+      dtype: "Uint16",
       shape: []
     },
     compare: true
   },
-  onClick: { type: 'function', value: null, compare: true },
-  onViewportLoad: { type: 'function', value: null, compare: true },
+  onClick: { type: "function", value: null, compare: true },
+  onViewportLoad: { type: "function", value: null, compare: true },
   interpolation: {
-    type: 'number',
-    value: 'nearest',
+    type: "number",
+    value: "nearest",
     compare: true
   },
   extensions: {
-    type: 'array',
+    type: "array",
     value: [new ColorPaletteExtension()],
     compare: true
   }
@@ -4781,43 +4293,29 @@ const ImageLayer = class extends CompositeLayer {
       const abortController = new AbortController();
       this.setState({ abortController });
       const { signal } = abortController;
-      const getRaster = selection => loader.getRaster({ selection, signal });
+      const getRaster = (selection) => loader.getRaster({ selection, signal });
       const dataPromises = selections.map(getRaster);
-      Promise.all(dataPromises)
-        .then(rasters => {
-          const raster = {
-            data: rasters.map(d => d.data),
-            width: _optionalChain$2([
-              rasters,
-              'access',
-              _22 => _22[0],
-              'optionalAccess',
-              _23 => _23.width
-            ]),
-            height: _optionalChain$2([
-              rasters,
-              'access',
-              _24 => _24[0],
-              'optionalAccess',
-              _25 => _25.height
-            ])
-          };
-          if (isInterleaved(loader.shape)) {
-            raster.data = raster.data[0];
-            if (raster.data.length === raster.width * raster.height * 3) {
-              raster.format = 'rgba8unorm';
-            }
+      Promise.all(dataPromises).then((rasters) => {
+        const raster = {
+          data: rasters.map((d) => d.data),
+          width: _optionalChain$2([rasters, 'access', _22 => _22[0], 'optionalAccess', _23 => _23.width]),
+          height: _optionalChain$2([rasters, 'access', _24 => _24[0], 'optionalAccess', _25 => _25.height])
+        };
+        if (isInterleaved(loader.shape)) {
+          raster.data = raster.data[0];
+          if (raster.data.length === raster.width * raster.height * 3) {
+            raster.format = "rgba8unorm";
           }
-          if (onViewportLoad) {
-            onViewportLoad(raster);
-          }
-          this.setState({ ...raster });
-        })
-        .catch(e => {
-          if (e !== SIGNAL_ABORTED) {
-            throw e;
-          }
-        });
+        }
+        if (onViewportLoad) {
+          onViewportLoad(raster);
+        }
+        this.setState({ ...raster });
+      }).catch((e) => {
+        if (e !== SIGNAL_ABORTED) {
+          throw e;
+        }
+      });
     }
   }
   getPickingInfo({ info, sourceLayer }) {
@@ -4829,7 +4327,8 @@ const ImageLayer = class extends CompositeLayer {
     const { loader, id } = this.props;
     const { dtype } = loader;
     const { width, height, data } = this.state;
-    if (!(width && height)) return null;
+    if (!(width && height))
+      return null;
     const bounds = [0, height, width, 0];
     if (isInterleaved(loader.shape)) {
       const { photometricInterpretation = 2 } = loader.meta;
@@ -4851,7 +4350,7 @@ const ImageLayer = class extends CompositeLayer {
     });
   }
 };
-ImageLayer.layerName = 'ImageLayer';
+ImageLayer.layerName = "ImageLayer";
 ImageLayer.defaultProps = defaultProps$6;
 
 function renderSubLayers(props) {
@@ -4860,7 +4359,7 @@ function renderSubLayers(props) {
     index: { x, y, z }
   } = props.tile;
   const { data, id, loader, maxZoom } = props;
-  if ([left, bottom, right, top].some(v => v < 0) || !data) {
+  if ([left, bottom, right, top].some((v) => v < 0) || !data) {
     return null;
   }
   const base = loader[0];
@@ -4893,20 +4392,20 @@ function renderSubLayers(props) {
     id: `tile-sub-layer-${bounds}-${id}`,
     tileId: { x, y, z },
     // The auto setting is NEAREST at the highest resolution but LINEAR otherwise.
-    interpolation: z === maxZoom ? 'nearest' : 'linear'
+    interpolation: z === maxZoom ? "nearest" : "linear"
   });
 }
 
 const defaultProps$5 = {
-  pickable: { type: 'boolean', value: true, compare: true },
+  pickable: { type: "boolean", value: true, compare: true },
   coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
-  contrastLimits: { type: 'array', value: [], compare: true },
-  channelsVisible: { type: 'array', value: [], compare: true },
-  renderSubLayers: { type: 'function', value: renderSubLayers, compare: false },
-  dtype: { type: 'string', value: 'Uint16', compare: true },
-  domain: { type: 'array', value: [], compare: true },
-  viewportId: { type: 'string', value: '', compare: true },
-  interpolation: { type: 'number', value: null, compare: true }
+  contrastLimits: { type: "array", value: [], compare: true },
+  channelsVisible: { type: "array", value: [], compare: true },
+  renderSubLayers: { type: "function", value: renderSubLayers, compare: false },
+  dtype: { type: "string", value: "Uint16", compare: true },
+  domain: { type: "array", value: [], compare: true },
+  viewportId: { type: "string", value: "", compare: true },
+  interpolation: { type: "number", value: null, compare: true }
 };
 class MultiscaleImageLayerBase extends TileLayer {
   /**
@@ -4919,32 +4418,29 @@ class MultiscaleImageLayerBase extends TileLayer {
     if (!this.props.viewportId) {
       super._updateTileset();
     }
-    if (
-      (this.props.viewportId &&
-        this.context.viewport.id === this.props.viewportId) || // I don't know why, but DeckGL doesn't recognize multiple views on the first pass
-      // so we force update on the first pass by checking if there is a viewport in the tileset.
-      !this.state.tileset._viewport
-    ) {
+    if (this.props.viewportId && this.context.viewport.id === this.props.viewportId || // I don't know why, but DeckGL doesn't recognize multiple views on the first pass
+    // so we force update on the first pass by checking if there is a viewport in the tileset.
+    !this.state.tileset._viewport) {
       super._updateTileset();
     }
   }
 }
-MultiscaleImageLayerBase.layerName = 'MultiscaleImageLayerBase';
+MultiscaleImageLayerBase.layerName = "MultiscaleImageLayerBase";
 MultiscaleImageLayerBase.defaultProps = defaultProps$5;
 
 const defaultProps$4 = {
-  pickable: { type: 'boolean', value: true, compare: true },
-  onHover: { type: 'function', value: null, compare: false },
-  contrastLimits: { type: 'array', value: [], compare: true },
-  channelsVisible: { type: 'array', value: [], compare: true },
-  domain: { type: 'array', value: [], compare: true },
-  viewportId: { type: 'string', value: '', compare: true },
-  maxRequests: { type: 'number', value: 10, compare: true },
-  onClick: { type: 'function', value: null, compare: true },
-  refinementStrategy: { type: 'string', value: null, compare: true },
-  excludeBackground: { type: 'boolean', value: false, compare: true },
+  pickable: { type: "boolean", value: true, compare: true },
+  onHover: { type: "function", value: null, compare: false },
+  contrastLimits: { type: "array", value: [], compare: true },
+  channelsVisible: { type: "array", value: [], compare: true },
+  domain: { type: "array", value: [], compare: true },
+  viewportId: { type: "string", value: "", compare: true },
+  maxRequests: { type: "number", value: 10, compare: true },
+  onClick: { type: "function", value: null, compare: true },
+  refinementStrategy: { type: "string", value: null, compare: true },
+  excludeBackground: { type: "boolean", value: false, compare: true },
   extensions: {
-    type: 'array',
+    type: "array",
     value: [new ColorPaletteExtension()],
     compare: true
   }
@@ -4970,21 +4466,21 @@ const MultiscaleImageLayer = class extends CompositeLayer {
         return null;
       }
       const resolution = Math.round(-z);
-      const getTile = selection => {
+      const getTile = (selection) => {
         const config = { x, y, selection, signal };
         return loader[resolution].getTile(config);
       };
       try {
         const tiles = await Promise.all(selections.map(getTile));
         const tile = {
-          data: tiles.map(d => d.data),
+          data: tiles.map((d) => d.data),
           width: tiles[0].width,
           height: tiles[0].height
         };
         if (isInterleaved(loader[resolution].shape)) {
           tile.data = tile.data[0];
           if (tile.data.length === tile.width * tile.height * 3) {
-            tile.format = 'rgba8unorm';
+            tile.format = "rgba8unorm";
           }
           return tile;
         }
@@ -5015,8 +4511,7 @@ const MultiscaleImageLayer = class extends CompositeLayer {
       maxZoom: 0,
       // We want a no-overlap caching strategy with an opacity < 1 to prevent
       // multiple rendered sublayers (some of which have been cached) from overlapping
-      refinementStrategy:
-        refinementStrategy || (opacity === 1 ? 'best-available' : 'no-overlap'),
+      refinementStrategy: refinementStrategy || (opacity === 1 ? "best-available" : "no-overlap"),
       // TileLayer checks `changeFlags.updateTriggersChanged.getTileData` to see if tile cache
       // needs to be re-created. We want to trigger this behavior if the loader changes.
       // https://github.com/uber/deck.gl/blob/3f67ea6dfd09a4d74122f93903cb6b819dd88d52/modules/geo-layers/src/tile-layer/tile-layer.js#L50
@@ -5026,44 +4521,40 @@ const MultiscaleImageLayer = class extends CompositeLayer {
       onTileError: onTileError || loader[0].onTileError
     });
     const lowestResolution = loader[loader.length - 1];
-    const implementsGetRaster =
-      typeof lowestResolution.getRaster === 'function';
+    const implementsGetRaster = typeof lowestResolution.getRaster === "function";
     const layerModelMatrix = modelMatrix ? modelMatrix.clone() : new Matrix4();
-    const baseLayer =
-      implementsGetRaster &&
-      !excludeBackground &&
-      new ImageLayer(this.props, {
-        id: `Background-Image-${id}`,
-        loader: lowestResolution,
-        modelMatrix: layerModelMatrix.scale(2 ** (loader.length - 1)),
-        visible: !viewportId || this.context.viewport.id === viewportId,
-        onHover,
-        onClick,
-        // Background image is nicest when LINEAR in my opinion.
-        interpolation: 'linear',
-        onViewportLoad: null
-      });
+    const baseLayer = implementsGetRaster && !excludeBackground && new ImageLayer(this.props, {
+      id: `Background-Image-${id}`,
+      loader: lowestResolution,
+      modelMatrix: layerModelMatrix.scale(2 ** (loader.length - 1)),
+      visible: !viewportId || this.context.viewport.id === viewportId,
+      onHover,
+      onClick,
+      // Background image is nicest when LINEAR in my opinion.
+      interpolation: "linear",
+      onViewportLoad: null
+    });
     const layers = [baseLayer, tiledLayer];
     return layers;
   }
 };
-MultiscaleImageLayer.layerName = 'MultiscaleImageLayer';
+MultiscaleImageLayer.layerName = "MultiscaleImageLayer";
 MultiscaleImageLayer.defaultProps = defaultProps$4;
 
 const defaultProps$3 = {
-  pickable: { type: 'boolean', value: true, compare: true },
+  pickable: { type: "boolean", value: true, compare: true },
   loader: {
-    type: 'object',
+    type: "object",
     value: {
       getRaster: async () => ({ data: [], height: 0, width: 0 }),
       getRasterSize: () => ({ height: 0, width: 0 }),
-      dtype: '<u2'
+      dtype: "<u2"
     },
     compare: true
   },
-  id: { type: 'string', value: '', compare: true },
+  id: { type: "string", value: "", compare: true },
   boundingBox: {
-    type: 'array',
+    type: "array",
     value: [
       [0, 0],
       [0, 1],
@@ -5072,14 +4563,14 @@ const defaultProps$3 = {
     ],
     compare: true
   },
-  boundingBoxColor: { type: 'array', value: [255, 0, 0], compare: true },
-  boundingBoxOutlineWidth: { type: 'number', value: 1, compare: true },
-  viewportOutlineColor: { type: 'array', value: [255, 190, 0], compare: true },
-  viewportOutlineWidth: { type: 'number', value: 2, compare: true },
-  overviewScale: { type: 'number', value: 1, compare: true },
-  zoom: { type: 'number', value: 1, compare: true },
+  boundingBoxColor: { type: "array", value: [255, 0, 0], compare: true },
+  boundingBoxOutlineWidth: { type: "number", value: 1, compare: true },
+  viewportOutlineColor: { type: "array", value: [255, 190, 0], compare: true },
+  viewportOutlineWidth: { type: "number", value: 2, compare: true },
+  overviewScale: { type: "number", value: 1, compare: true },
+  zoom: { type: "number", value: 1, compare: true },
   extensions: {
-    type: 'array',
+    type: "array",
     value: [new ColorPaletteExtension()],
     compare: true
   }
@@ -5109,7 +4600,7 @@ const OverviewLayer = class extends CompositeLayer {
       id: `bounding-box-overview-${id}`,
       coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
       data: [boundingBox],
-      getPolygon: f => f,
+      getPolygon: (f) => f,
       filled: false,
       stroked: true,
       getLineColor: boundingBoxColor,
@@ -5126,7 +4617,7 @@ const OverviewLayer = class extends CompositeLayer {
           [0, height * overviewScale]
         ]
       ],
-      getPolygon: f => f,
+      getPolygon: (f) => f,
       filled: false,
       stroked: true,
       getLineColor: viewportOutlineColor,
@@ -5136,21 +4627,21 @@ const OverviewLayer = class extends CompositeLayer {
     return layers;
   }
 };
-OverviewLayer.layerName = 'OverviewLayer';
+OverviewLayer.layerName = "OverviewLayer";
 OverviewLayer.defaultProps = defaultProps$3;
 
 const defaultProps$2 = {
-  pickable: { type: 'boolean', value: true, compare: true },
+  pickable: { type: "boolean", value: true, compare: true },
   imageViewState: {
-    type: 'object',
+    type: "object",
     value: { zoom: 0, target: [0, 0, 0], width: 1, height: 1 },
     compare: true
   },
-  unit: { type: 'string', value: '', compare: true },
-  size: { type: 'number', value: 1, compare: true },
-  position: { type: 'string', value: 'bottom-right', compare: true },
-  length: { type: 'number', value: 0.085, compare: true },
-  snap: { type: 'boolean', value: false, compare: true }
+  unit: { type: "string", value: "", compare: true },
+  size: { type: "number", value: 1, compare: true },
+  position: { type: "string", value: "bottom-right", compare: true },
+  length: { type: "number", value: 0.085, compare: true },
+  snap: { type: "boolean", value: false, compare: true }
 };
 const ScaleBarLayer = class extends CompositeLayer {
   renderLayers() {
@@ -5176,30 +4667,28 @@ const ScaleBarLayer = class extends CompositeLayer {
     if (snap) {
       const meterSize = sizeToMeters(size, unit);
       const numUnits = barLength * meterSize;
-      const [snappedOrigUnits, snappedNewUnits, snappedUnitPrefix] =
-        snapValue(numUnits);
+      const [snappedOrigUnits, snappedNewUnits, snappedUnitPrefix] = snapValue(numUnits);
       displayNumber = snappedNewUnits;
       displayUnit = `${snappedUnitPrefix}m`;
-      adjustedBarLength =
-        (snappedOrigUnits / meterSize) * 2 ** imageViewState.zoom;
+      adjustedBarLength = snappedOrigUnits / meterSize * 2 ** imageViewState.zoom;
     }
     let xLeftCoord;
     let yCoord;
-    const isLeft = position.endsWith('-left');
+    const isLeft = position.endsWith("-left");
     switch (position) {
-      case 'bottom-right':
+      case "bottom-right":
         yCoord = height - height * length;
         xLeftCoord = width - adjustedBarLength - width * length;
         break;
-      case 'bottom-left':
+      case "bottom-left":
         yCoord = height - height * length;
         xLeftCoord = width * length;
         break;
-      case 'top-right':
+      case "top-right":
         yCoord = height * length;
         xLeftCoord = width - adjustedBarLength - width * length;
         break;
-      case 'top-left':
+      case "top-left":
         yCoord = height * length;
         xLeftCoord = width * length;
         break;
@@ -5216,8 +4705,8 @@ const ScaleBarLayer = class extends CompositeLayer {
           [isLeft ? xLeftCoord + adjustedBarLength : xRightCoord, yCoord]
         ]
       ],
-      getSourcePosition: d => d[0],
-      getTargetPosition: d => d[1],
+      getSourcePosition: (d) => d[0],
+      getTargetPosition: (d) => d[1],
       getWidth: 2,
       getColor: [220, 220, 220]
     });
@@ -5236,8 +4725,8 @@ const ScaleBarLayer = class extends CompositeLayer {
           ]
         ]
       ],
-      getSourcePosition: d => d[0],
-      getTargetPosition: d => d[1],
+      getSourcePosition: (d) => d[0],
+      getTargetPosition: (d) => d[1],
       getWidth: 2,
       getColor: [220, 220, 220]
     });
@@ -5256,8 +4745,8 @@ const ScaleBarLayer = class extends CompositeLayer {
           ]
         ]
       ],
-      getSourcePosition: d => d[0],
-      getTargetPosition: d => d[1],
+      getSourcePosition: (d) => d[0],
+      getTargetPosition: (d) => d[1],
       getWidth: 2,
       getColor: [220, 220, 220]
     });
@@ -5270,24 +4759,24 @@ const ScaleBarLayer = class extends CompositeLayer {
           position: [isLeft ? xLeftCoord : xRightCoord, yCoord - barHeight * 2]
         }
       ],
-      getTextAnchor: isLeft ? 'start' : 'end',
+      getTextAnchor: isLeft ? "start" : "end",
       getColor: [220, 220, 220, 255],
       getSize: 12,
       fontFamily: DEFAULT_FONT_FAMILY,
-      sizeUnits: 'pixels',
+      sizeUnits: "pixels",
       sizeScale: 1,
       characterSet: [
-        ...displayUnit.split(''),
-        ...range(10).map(i => String(i)),
-        '.',
-        'e',
-        '+'
+        ...displayUnit.split(""),
+        ...range(10).map((i) => String(i)),
+        ".",
+        "e",
+        "+"
       ]
     });
     return [lengthBar, tickBoundsLeft, tickBoundsRight, textLayer];
   }
 };
-ScaleBarLayer.layerName = 'ScaleBarLayer';
+ScaleBarLayer.layerName = "ScaleBarLayer";
 ScaleBarLayer.defaultProps = defaultProps$2;
 
 const fs = `#version 300 es
@@ -5503,7 +4992,7 @@ void main() {
 `;
 
 const channelsModule = {
-  name: 'channel-intensity-module',
+  name: "channel-intensity-module",
   fs: `    float apply_contrast_limits(float intensity, vec2 contrastLimits) {
       float contrastLimitsAppliedToIntensity = (intensity - contrastLimits[0]) / max(0.0005, (contrastLimits[1] - contrastLimits[0]));
       return max(0., contrastLimitsAppliedToIntensity);
@@ -5511,44 +5000,84 @@ const channelsModule = {
   `
 };
 const CUBE_STRIP = [
-  1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0,
-  0, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0
+  1,
+  1,
+  0,
+  0,
+  1,
+  0,
+  1,
+  1,
+  1,
+  0,
+  1,
+  1,
+  0,
+  0,
+  1,
+  0,
+  1,
+  0,
+  0,
+  0,
+  0,
+  1,
+  1,
+  0,
+  1,
+  0,
+  0,
+  1,
+  1,
+  1,
+  1,
+  0,
+  1,
+  0,
+  0,
+  1,
+  1,
+  0,
+  0,
+  0,
+  0,
+  0
 ];
 const NUM_PLANES_DEFAULT = 1;
 const defaultProps$1 = {
   pickable: false,
   coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
-  channelData: { type: 'object', value: {}, compare: true },
-  contrastLimits: { type: 'array', value: [], compare: true },
-  dtype: { type: 'string', value: 'Uint8', compare: true },
-  xSlice: { type: 'array', value: null, compare: true },
-  ySlice: { type: 'array', value: null, compare: true },
-  zSlice: { type: 'array', value: null, compare: true },
-  clippingPlanes: { type: 'array', value: [], compare: true },
-  resolutionMatrix: { type: 'object', value: new Matrix4(), compare: true },
-  channelsVisible: { type: 'array', value: [], compare: true },
+  channelData: { type: "object", value: {}, compare: true },
+  contrastLimits: { type: "array", value: [], compare: true },
+  dtype: { type: "string", value: "Uint8", compare: true },
+  xSlice: { type: "array", value: null, compare: true },
+  ySlice: { type: "array", value: null, compare: true },
+  zSlice: { type: "array", value: null, compare: true },
+  clippingPlanes: { type: "array", value: [], compare: true },
+  resolutionMatrix: { type: "object", value: new Matrix4(), compare: true },
+  channelsVisible: { type: "array", value: [], compare: true },
   extensions: {
-    type: 'array',
+    type: "array",
     value: [new ColorPalette3DExtensions.AdditiveBlendExtension()],
     compare: true
   }
 };
 function getRenderingAttrs() {
-  const values = getDtypeValues('Float32');
+  const values = getDtypeValues("Float32");
   return {
     ...values,
-    sampler: values.sampler.replace('2D', '3D'),
-    cast: data => new Float32Array(data)
+    sampler: values.sampler.replace("2D", "3D"),
+    cast: (data) => new Float32Array(data)
   };
 }
 function getRenderingFromExtensions(extensions) {
   let rendering = {};
-  extensions.forEach(extension => {
+  extensions.forEach((extension) => {
     rendering = extension.rendering;
   });
   if (!rendering._RENDER) {
     throw new Error(
-      'XR3DLayer requires at least one extension to define opts.rendering as an object with _RENDER as a property at the minimum.'
+      "XR3DLayer requires at least one extension to define opts.rendering as an object with _RENDER as a property at the minimum."
     );
   }
   return rendering;
@@ -5561,39 +5090,23 @@ const XR3DLayer = class extends Layer {
       [GL.PACK_ALIGNMENT]: 1
     });
     const programManager = ShaderAssembler.getDefaultShaderAssembler();
-    const processStr =
-      'fs:DECKGL_PROCESS_INTENSITY(inout float intensity, vec2 contrastLimits, int channelIndex)';
+    const processStr = "fs:DECKGL_PROCESS_INTENSITY(inout float intensity, vec2 contrastLimits, int channelIndex)";
     if (!programManager._hookFunctions.includes(processStr)) {
       programManager.addShaderHook(processStr);
     }
   }
   _isHookDefinedByExtensions(hookName) {
     const { extensions } = this.props;
-    return _optionalChain$2([
-      extensions,
-      'optionalAccess',
-      _26 => _26.some,
-      'call',
-      _27 =>
-        _27(e => {
-          const shaders = e.getShaders();
-          if (shaders) {
-            const { inject = {}, modules = [] } = shaders;
-            const definesInjection = inject[hookName];
-            const moduleDefinesInjection = modules.some(m =>
-              _optionalChain$2([
-                m,
-                'optionalAccess',
-                _28 => _28.inject,
-                'optionalAccess',
-                _29 => _29[hookName]
-              ])
-            );
-            return definesInjection || moduleDefinesInjection;
-          }
-          return false;
-        })
-    ]);
+    return _optionalChain$2([extensions, 'optionalAccess', _26 => _26.some, 'call', _27 => _27((e) => {
+      const shaders = e.getShaders();
+      if (shaders) {
+        const { inject = {}, modules = [] } = shaders;
+        const definesInjection = inject[hookName];
+        const moduleDefinesInjection = modules.some((m) => _optionalChain$2([m, 'optionalAccess', _28 => _28.inject, 'optionalAccess', _29 => _29[hookName]]));
+        return definesInjection || moduleDefinesInjection;
+      }
+      return false;
+    })]);
   }
   /**
    * This function compiles the shaders and the projection module.
@@ -5601,22 +5114,17 @@ const XR3DLayer = class extends Layer {
   getShaders() {
     const { clippingPlanes, extensions } = this.props;
     const { sampler } = getRenderingAttrs();
-    const { _BEFORE_RENDER, _RENDER, _AFTER_RENDER } =
-      getRenderingFromExtensions(extensions);
-    const extensionDefinesDeckglProcessIntensity =
-      this._isHookDefinedByExtensions('fs:DECKGL_PROCESS_INTENSITY');
+    const { _BEFORE_RENDER, _RENDER, _AFTER_RENDER } = getRenderingFromExtensions(extensions);
+    const extensionDefinesDeckglProcessIntensity = this._isHookDefinedByExtensions("fs:DECKGL_PROCESS_INTENSITY");
     const newChannelsModule = { inject: {}, ...channelsModule };
     if (!extensionDefinesDeckglProcessIntensity) {
-      newChannelsModule.inject['fs:DECKGL_PROCESS_INTENSITY'] = `
+      newChannelsModule.inject["fs:DECKGL_PROCESS_INTENSITY"] = `
         intensity = apply_contrast_limits(intensity, contrastLimits);
       `;
     }
     return super.getShaders({
       vs,
-      fs: fs
-        .replace('_BEFORE_RENDER', _BEFORE_RENDER)
-        .replace('_RENDER', _RENDER)
-        .replace('_AFTER_RENDER', _AFTER_RENDER),
+      fs: fs.replace("_BEFORE_RENDER", _BEFORE_RENDER).replace("_RENDER", _RENDER).replace("_AFTER_RENDER", _AFTER_RENDER),
       defines: {
         SAMPLER_TYPE: sampler,
         NUM_PLANES: String(clippingPlanes.length || NUM_PLANES_DEFAULT)
@@ -5630,15 +5138,7 @@ const XR3DLayer = class extends Layer {
   finalizeState() {
     super.finalizeState();
     if (this.state.textures) {
-      Object.values(this.state.textures).forEach(tex =>
-        _optionalChain$2([
-          tex,
-          'optionalAccess',
-          _30 => _30.delete,
-          'call',
-          _31 => _31()
-        ])
-      );
+      Object.values(this.state.textures).forEach((tex) => _optionalChain$2([tex, 'optionalAccess', _30 => _30.delete, 'call', _31 => _31()]));
     }
   }
   /**
@@ -5646,35 +5146,14 @@ const XR3DLayer = class extends Layer {
    * and loading any textures that need be loading.
    */
   updateState({ props, oldProps, changeFlags }) {
-    if (
-      changeFlags.extensionsChanged ||
-      props.colormap !== oldProps.colormap ||
-      props.renderingMode !== oldProps.renderingMode ||
-      props.clippingPlanes.length !== oldProps.clippingPlanes.length
-    ) {
+    if (changeFlags.extensionsChanged || props.colormap !== oldProps.colormap || props.renderingMode !== oldProps.renderingMode || props.clippingPlanes.length !== oldProps.clippingPlanes.length) {
       const { device } = this.context;
       if (this.state.model) {
         this.state.model.destroy();
       }
       this.setState({ model: this._getModel(device) });
     }
-    if (
-      props.channelData &&
-      _optionalChain$2([
-        props,
-        'optionalAccess',
-        _32 => _32.channelData,
-        'optionalAccess',
-        _33 => _33.data
-      ]) !==
-        _optionalChain$2([
-          oldProps,
-          'optionalAccess',
-          _34 => _34.channelData,
-          'optionalAccess',
-          _35 => _35.data
-        ])
-    ) {
+    if (props.channelData && _optionalChain$2([props, 'optionalAccess', _32 => _32.channelData, 'optionalAccess', _33 => _33.data]) !== _optionalChain$2([oldProps, 'optionalAccess', _34 => _34.channelData, 'optionalAccess', _35 => _35.data])) {
       this.loadTexture(props.channelData);
     }
   }
@@ -5688,7 +5167,7 @@ const XR3DLayer = class extends Layer {
     return new Model(gl, {
       ...this.getShaders(),
       geometry: new Geometry({
-        topology: 'triangle-strip',
+        topology: "triangle-strip",
         attributes: {
           positions: new Float32Array(CUBE_STRIP)
         }
@@ -5713,8 +5192,7 @@ const XR3DLayer = class extends Layer {
       clippingPlanes,
       resolutionMatrix
     } = this.props;
-    const { viewMatrix, viewMatrixInverse, projectionMatrix } =
-      this.context.viewport;
+    const { viewMatrix, viewMatrixInverse, projectionMatrix } = this.context.viewport;
     if (textures && model && scaleMatrix) {
       const paddedContrastLimits = padContrastLimits({
         contrastLimits,
@@ -5725,35 +5203,26 @@ const XR3DLayer = class extends Layer {
       const invertedScaleMatrix = scaleMatrix.clone().invert();
       const invertedResolutionMatrix = resolutionMatrix.clone().invert();
       const paddedClippingPlanes = padWithDefault(
-        clippingPlanes.map(p =>
-          p
-            .clone()
-            .transform(invertedScaleMatrix)
-            .transform(invertedResolutionMatrix)
+        clippingPlanes.map(
+          (p) => p.clone().transform(invertedScaleMatrix).transform(invertedResolutionMatrix)
         ),
         new Plane([1, 0, 0]),
         clippingPlanes.length || NUM_PLANES_DEFAULT
       );
-      const normals = paddedClippingPlanes.flatMap(plane => plane.normal);
-      const distances = paddedClippingPlanes.map(plane => plane.distance);
+      const normals = paddedClippingPlanes.flatMap((plane) => plane.normal);
+      const distances = paddedClippingPlanes.map((plane) => plane.distance);
       model.setUniforms(
         {
           ...uniforms,
           contrastLimits: paddedContrastLimits,
           xSlice: new Float32Array(
-            xSlice
-              ? xSlice.map(i => i / scaleMatrix[0] / resolutionMatrix[0])
-              : [0, 1]
+            xSlice ? xSlice.map((i) => i / scaleMatrix[0] / resolutionMatrix[0]) : [0, 1]
           ),
           ySlice: new Float32Array(
-            ySlice
-              ? ySlice.map(i => i / scaleMatrix[5] / resolutionMatrix[5])
-              : [0, 1]
+            ySlice ? ySlice.map((i) => i / scaleMatrix[5] / resolutionMatrix[5]) : [0, 1]
           ),
           zSlice: new Float32Array(
-            zSlice
-              ? zSlice.map(i => i / scaleMatrix[10] / resolutionMatrix[10])
-              : [0, 1]
+            zSlice ? zSlice.map((i) => i / scaleMatrix[10] / resolutionMatrix[10]) : [0, 1]
           ),
           eye_pos: new Float32Array([
             viewMatrixInverse[12],
@@ -5787,28 +5256,18 @@ const XR3DLayer = class extends Layer {
       volume5: null
     };
     if (this.state.textures) {
-      Object.values(this.state.textures).forEach(tex =>
-        _optionalChain$2([
-          tex,
-          'optionalAccess',
-          _36 => _36.delete,
-          'call',
-          _37 => _37()
-        ])
-      );
+      Object.values(this.state.textures).forEach((tex) => _optionalChain$2([tex, 'optionalAccess', _36 => _36.delete, 'call', _37 => _37()]));
     }
-    if (
-      channelData &&
-      Object.keys(channelData).length > 0 &&
-      channelData.data
-    ) {
+    if (channelData && Object.keys(channelData).length > 0 && channelData.data) {
       const { height, width, depth } = channelData;
       channelData.data.forEach((d, i) => {
         textures[`volume${i}`] = this.dataToTexture(d, width, height, depth);
       }, this);
       for (const key in textures) {
-        if (!textures.volume0) throw new Error('Bad texture state!');
-        if (!textures[key]) textures[key] = textures.volume0;
+        if (!textures.volume0)
+          throw new Error("Bad texture state!");
+        if (!textures[key])
+          textures[key] = textures.volume0;
       }
       this.setState({
         textures,
@@ -5831,43 +5290,35 @@ const XR3DLayer = class extends Layer {
       width,
       height,
       depth,
-      dimension: '3d',
-      data: _nullishCoalesce$1(
-        _optionalChain$2([
-          attrs,
-          'access',
-          _38 => _38.cast,
-          'optionalCall',
-          _39 => _39(data)
-        ]),
-        () => data
-      ),
+      dimension: "3d",
+      data: _nullishCoalesce$1(_optionalChain$2([attrs, 'access', _38 => _38.cast, 'optionalCall', _39 => _39(data)]), () => ( data)),
       format: attrs.format,
       mipmaps: false,
       sampler: {
-        minFilter: 'linear',
-        magFilter: 'linear',
-        addressModeU: 'clamp-to-edge',
-        addressModeV: 'clamp-to-edge',
-        addressModeW: 'clamp-to-edge'
+        minFilter: "linear",
+        magFilter: "linear",
+        addressModeU: "clamp-to-edge",
+        addressModeV: "clamp-to-edge",
+        addressModeW: "clamp-to-edge"
       }
     });
     return texture;
   }
 };
-XR3DLayer.layerName = 'XR3DLayer';
+XR3DLayer.layerName = "XR3DLayer";
 XR3DLayer.defaultProps = defaultProps$1;
 
 async function getVolume({
   source,
   selection,
-  onUpdate = () => {},
+  onUpdate = () => {
+  },
   downsampleDepth = 1,
   signal
 }) {
   const { shape, labels, dtype } = source;
   const { height, width } = getImageSize(source);
-  const depth = shape[labels.indexOf('z')];
+  const depth = shape[labels.indexOf("z")];
   const depthDownsampled = Math.max(1, Math.floor(depth / downsampleDepth));
   const rasterSize = height * width;
   const name = `${dtype}Array`;
@@ -5887,8 +5338,7 @@ async function getVolume({
       onUpdate();
       while (r < rasterSize) {
         const volIndex = z * rasterSize + (rasterSize - r - 1);
-        const rasterIndex =
-          ((width - r - 1) % width) + width * Math.floor(r / width);
+        const rasterIndex = (width - r - 1) % width + width * Math.floor(r / width);
         volumeData[volIndex] = rasterData[rasterIndex];
         r += 1;
       }
@@ -5914,40 +5364,41 @@ const getTextLayer = (text, viewport, id) => {
     ],
     getColor: [220, 220, 220, 255],
     getSize: 25,
-    sizeUnits: 'meters',
+    sizeUnits: "meters",
     sizeScale: 2 ** -viewport.zoom,
-    fontFamily: 'Helvetica'
+    fontFamily: "Helvetica"
   });
 };
 
 const defaultProps = {
   pickable: false,
   coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
-  contrastLimits: { type: 'array', value: [], compare: true },
-  channelsVisible: { type: 'array', value: [], compare: true },
-  selections: { type: 'array', value: [], compare: true },
-  resolution: { type: 'number', value: 0, compare: true },
-  domain: { type: 'array', value: [], compare: true },
+  contrastLimits: { type: "array", value: [], compare: true },
+  channelsVisible: { type: "array", value: [], compare: true },
+  selections: { type: "array", value: [], compare: true },
+  resolution: { type: "number", value: 0, compare: true },
+  domain: { type: "array", value: [], compare: true },
   loader: {
-    type: 'object',
+    type: "object",
     value: [
       {
         getRaster: async () => ({ data: [], height: 0, width: 0 }),
-        dtype: 'Uint16',
+        dtype: "Uint16",
         shape: [1],
-        labels: ['z']
+        labels: ["z"]
       }
     ],
     compare: true
   },
-  xSlice: { type: 'array', value: null, compare: true },
-  ySlice: { type: 'array', value: null, compare: true },
-  zSlice: { type: 'array', value: null, compare: true },
-  clippingPlanes: { type: 'array', value: [], compare: true },
-  onUpdate: { type: 'function', value: () => {}, compare: true },
-  useProgressIndicator: { type: 'boolean', value: true, compare: true },
+  xSlice: { type: "array", value: null, compare: true },
+  ySlice: { type: "array", value: null, compare: true },
+  zSlice: { type: "array", value: null, compare: true },
+  clippingPlanes: { type: "array", value: [], compare: true },
+  onUpdate: { type: "function", value: () => {
+  }, compare: true },
+  useProgressIndicator: { type: "boolean", value: true, compare: true },
   extensions: {
-    type: 'array',
+    type: "array",
     value: [new ColorPalette3DExtensions.AdditiveBlendExtension()],
     compare: true
   }
@@ -5984,9 +5435,7 @@ const VolumeLayer = class extends CompositeLayer {
       } = this.props;
       const source = loader[resolution];
       let progress = 0;
-      const totalRequests =
-        (source.shape[source.labels.indexOf('z')] >> resolution) *
-        selections.length;
+      const totalRequests = (source.shape[source.labels.indexOf("z")] >> resolution) * selections.length;
       const onUpdate = () => {
         progress += 0.5 / totalRequests;
         if (this.props.onUpdate) {
@@ -5997,8 +5446,8 @@ const VolumeLayer = class extends CompositeLayer {
       const abortController = new AbortController();
       this.setState({ abortController });
       const { signal } = abortController;
-      const volumePromises = selections.map(selection =>
-        getVolume({
+      const volumePromises = selections.map(
+        (selection) => getVolume({
           selection,
           source,
           onUpdate,
@@ -6009,33 +5458,15 @@ const VolumeLayer = class extends CompositeLayer {
       const physicalSizeScalingMatrix = getPhysicalSizeScalingMatrix(
         loader[resolution]
       );
-      Promise.all(volumePromises).then(volumes => {
+      Promise.all(volumePromises).then((volumes) => {
         if (onViewportLoad) {
           onViewportLoad(volumes);
         }
         const volume = {
-          data: volumes.map(d => d.data),
-          width: _optionalChain$2([
-            volumes,
-            'access',
-            _40 => _40[0],
-            'optionalAccess',
-            _41 => _41.width
-          ]),
-          height: _optionalChain$2([
-            volumes,
-            'access',
-            _42 => _42[0],
-            'optionalAccess',
-            _43 => _43.height
-          ]),
-          depth: _optionalChain$2([
-            volumes,
-            'access',
-            _44 => _44[0],
-            'optionalAccess',
-            _45 => _45.depth
-          ])
+          data: volumes.map((d) => d.data),
+          width: _optionalChain$2([volumes, 'access', _40 => _40[0], 'optionalAccess', _41 => _41.width]),
+          height: _optionalChain$2([volumes, 'access', _42 => _42[0], 'optionalAccess', _43 => _43.height]),
+          depth: _optionalChain$2([volumes, 'access', _44 => _44[0], 'optionalAccess', _45 => _45.depth])
         };
         this.setState({
           ...volume,
@@ -6081,30 +5512,10 @@ const VolumeLayer = class extends CompositeLayer {
     });
   }
 };
-VolumeLayer.layerName = 'VolumeLayer';
+VolumeLayer.layerName = "VolumeLayer";
 VolumeLayer.defaultProps = defaultProps;
 
-function _optionalChain$1(ops) {
-  let lastAccessLHS = undefined;
-  let value = ops[0];
-  let i = 1;
-  while (i < ops.length) {
-    const op = ops[i];
-    const fn = ops[i + 1];
-    i += 2;
-    if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) {
-      return undefined;
-    }
-    if (op === 'access' || op === 'optionalAccess') {
-      lastAccessLHS = value;
-      value = fn(value);
-    } else if (op === 'call' || op === 'optionalCall') {
-      value = fn((...args) => value.call(lastAccessLHS, ...args));
-      lastAccessLHS = undefined;
-    }
-  }
-  return value;
-}
+function _optionalChain$1(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 class VivView {
   constructor({ id, x = 0, y = 0, height, width }) {
     this.width = width;
@@ -6146,19 +5557,14 @@ class VivView {
    * @param {Object} args.props Props for this instance.
    * @returns {Layer} Instance of a layer.
    */
-  getLayers({ viewStates, props }) {}
+  getLayers({ viewStates, props }) {
+  }
 }
 
 function getVivId(id) {
   return `-#${id}#`;
 }
-function getDefaultInitialViewState(
-  loader,
-  viewSize,
-  zoomBackOff = 0,
-  use3d = false,
-  modelMatrix
-) {
+function getDefaultInitialViewState(loader, viewSize, zoomBackOff = 0, use3d = false, modelMatrix) {
   const source = Array.isArray(loader) ? loader[0] : loader;
   const { width: pixelWidth, height: pixelHeight } = getImageSize(source);
   const scale = (modelMatrix || new Matrix4()).getScale();
@@ -6166,11 +5572,10 @@ function getDefaultInitialViewState(
     scale[0] * pixelWidth,
     scale[1] * pixelHeight
   ];
-  const depth = source.shape[source.labels.indexOf('z')];
-  const zoom =
-    Math.log2(
-      Math.min(viewSize.width / trueWidth, viewSize.height / trueHeight)
-    ) - zoomBackOff;
+  const depth = source.shape[source.labels.indexOf("z")];
+  const zoom = Math.log2(
+    Math.min(viewSize.width / trueWidth, viewSize.height / trueHeight)
+  ) - zoomBackOff;
   const physicalSizeScalingMatrix = getPhysicalSizeScalingMatrix(source);
   const loaderInitialViewState = {
     target: (modelMatrix || new Matrix4()).transformPoint(
@@ -6186,15 +5591,7 @@ function getDefaultInitialViewState(
 }
 function getImageLayer(id, props) {
   const { loader } = props;
-  const sourceName = _optionalChain$1([
-    loader,
-    'access',
-    _ => _[0],
-    'optionalAccess',
-    _2 => _2.constructor,
-    'optionalAccess',
-    _3 => _3.name
-  ]);
+  const sourceName = _optionalChain$1([loader, 'access', _ => _[0], 'optionalAccess', _2 => _2.constructor, 'optionalAccess', _3 => _3.name]);
   const Layer = loader.length > 1 ? MultiscaleImageLayer : ImageLayer;
   const layerLoader = loader.length > 1 ? loader : loader[0];
   return new Layer({
@@ -6205,14 +5602,14 @@ function getImageLayer(id, props) {
   });
 }
 
-const OVERVIEW_VIEW_ID = 'overview';
+const OVERVIEW_VIEW_ID = "overview";
 class OverviewController extends Controller {
   constructor(props) {
     super(props);
-    this.events = ['click'];
+    this.events = ["click"];
   }
   handleEvent(event) {
-    if (event.type !== 'click') {
+    if (event.type !== "click") {
       return;
     }
     let [x, y] = this.getCenter(event);
@@ -6236,7 +5633,7 @@ class OverviewView extends VivView {
     detailWidth,
     scale = 0.2,
     margin = 25,
-    position = 'bottom-right',
+    position = "bottom-right",
     minimumWidth = 150,
     maximumWidth = 350,
     minimumHeight = 150,
@@ -6286,7 +5683,7 @@ class OverviewView extends VivView {
         Math.max(detailWidth * scale, minimumWidth)
       );
       this.height = this.width * heightWidthRatio;
-      this.scale = (2 ** (numLevels - 1) / rasterWidth) * this.width;
+      this.scale = 2 ** (numLevels - 1) / rasterWidth * this.width;
     } else {
       const widthHeightRatio = rasterWidth / rasterHeight;
       this.height = Math.min(
@@ -6294,7 +5691,7 @@ class OverviewView extends VivView {
         Math.max(detailHeight * scale, minimumHeight)
       );
       this.width = this.height * widthHeightRatio;
-      this.scale = (2 ** (numLevels - 1) / rasterHeight) * this.height;
+      this.scale = 2 ** (numLevels - 1) / rasterHeight * this.height;
     }
   }
   /**
@@ -6303,22 +5700,22 @@ class OverviewView extends VivView {
   _setXY() {
     const { height, width, margin, position, detailWidth, detailHeight } = this;
     switch (position) {
-      case 'bottom-right': {
+      case "bottom-right": {
         this.x = detailWidth - width - margin;
         this.y = detailHeight - height - margin;
         break;
       }
-      case 'top-right': {
+      case "top-right": {
         this.x = detailWidth - width - margin;
         this.y = margin;
         break;
       }
-      case 'top-left': {
+      case "top-left": {
         this.x = margin;
         this.y = margin;
         break;
       }
-      case 'bottom-left': {
+      case "bottom-left": {
         this.x = margin;
         this.y = detailHeight - height - margin;
         break;
@@ -6350,17 +5747,17 @@ class OverviewView extends VivView {
       height: this.height,
       width: this.width,
       id: this.id,
-      target: [(_imageWidth * scale) / 2, (_imageHeight * scale) / 2, 0],
+      target: [_imageWidth * scale / 2, _imageHeight * scale / 2, 0],
       zoom: -(this.loader.length - 1)
     };
   }
   getLayers({ viewStates, props }) {
     const { detail, overview } = viewStates;
     if (!detail) {
-      throw new Error('Overview requires a viewState with id detail');
+      throw new Error("Overview requires a viewState with id detail");
     }
-    const boundingBox = makeBoundingBox(detail).map(coords =>
-      coords.map(e => e * this.scale)
+    const boundingBox = makeBoundingBox(detail).map(
+      (coords) => coords.map((e) => e * this.scale)
     );
     const overviewLayer = new OverviewLayer(props, {
       id: getVivId(this.id),
@@ -6372,7 +5769,7 @@ class OverviewView extends VivView {
   }
 }
 
-const DETAIL_VIEW_ID = 'detail';
+const DETAIL_VIEW_ID = "detail";
 class DetailView extends VivView {
   constructor({ id, x = 0, y = 0, height, width }) {
     super({ id, x, y, height, width });
@@ -6415,11 +5812,7 @@ class SideBySideView extends VivView {
   filterViewState({ viewState, oldViewState, currentViewState }) {
     const { id: viewStateId } = viewState;
     const { id, linkedIds, panLock, zoomLock } = this;
-    if (
-      oldViewState &&
-      linkedIds.indexOf(viewStateId) !== -1 &&
-      (zoomLock || panLock)
-    ) {
+    if (oldViewState && linkedIds.indexOf(viewStateId) !== -1 && (zoomLock || panLock)) {
       const thisViewState = {
         height: currentViewState.height,
         width: currentViewState.width,
@@ -6452,25 +5845,22 @@ class SideBySideView extends VivView {
         width: thisViewState.width
       };
     }
-    return viewState.id === id
-      ? {
-          id,
-          target: viewState.target,
-          zoom: viewState.zoom,
-          height: viewState.height,
-          width: viewState.width
-        }
-      : {
-          id,
-          target: currentViewState.target,
-          zoom: currentViewState.zoom,
-          height: currentViewState.height,
-          width: currentViewState.width
-        };
+    return viewState.id === id ? {
+      id,
+      target: viewState.target,
+      zoom: viewState.zoom,
+      height: viewState.height,
+      width: viewState.width
+    } : {
+      id,
+      target: currentViewState.target,
+      zoom: currentViewState.zoom,
+      height: currentViewState.height,
+      width: currentViewState.width
+    };
   }
   getLayers({ props, viewStates }) {
-    const { id, viewportOutlineColor, viewportOutlineWidth, height, width } =
-      this;
+    const { id, viewportOutlineColor, viewportOutlineWidth, height, width } = this;
     const layerViewState = viewStates[id];
     const boundingBox = makeBoundingBox({ ...layerViewState, height, width });
     const layers = [getImageLayer(id, props)];
@@ -6478,7 +5868,7 @@ class SideBySideView extends VivView {
       id: `viewport-outline-${getVivId(id)}`,
       coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
       data: [boundingBox],
-      getPolygon: f => f,
+      getPolygon: (f) => f,
       filled: false,
       stroked: true,
       getLineColor: viewportOutlineColor,
@@ -6489,7 +5879,7 @@ class SideBySideView extends VivView {
   }
 }
 
-const SCALEBAR_VIEW_ID = 'scalebar';
+const SCALEBAR_VIEW_ID = "scalebar";
 class ScaleBarView extends VivView {
   constructor({
     id,
@@ -6497,7 +5887,7 @@ class ScaleBarView extends VivView {
     height,
     loader,
     imageViewId,
-    position = 'bottom-right',
+    position = "bottom-right",
     length = 0.05,
     snap = false,
     x = 0,
@@ -6539,19 +5929,7 @@ class ScaleBarView extends VivView {
   getLayers({ viewStates }) {
     const { loader } = this;
     const layers = [];
-    if (
-      _optionalChain$1([
-        loader,
-        'optionalAccess',
-        _4 => _4[0],
-        'optionalAccess',
-        _5 => _5.meta,
-        'optionalAccess',
-        _6 => _6.physicalSizes,
-        'optionalAccess',
-        _7 => _7.x
-      ])
-    ) {
+    if (_optionalChain$1([loader, 'optionalAccess', _4 => _4[0], 'optionalAccess', _5 => _5.meta, 'optionalAccess', _6 => _6.physicalSizes, 'optionalAccess', _7 => _7.x])) {
       const { id, height, width, position, length, snap, imageViewId } = this;
       const { size, unit } = loader[0].meta.physicalSizes.x;
       const imageViewState = viewStates[imageViewId];
@@ -6589,18 +5967,16 @@ class VolumeView extends VivView {
       width,
       x,
       y,
-      orbitAxis: 'Y'
+      orbitAxis: "Y"
     });
   }
   filterViewState({ viewState }) {
     const { id, target, useFixedAxis } = this;
-    return viewState.id === id
-      ? {
-          ...viewState,
-          // fix the center of the camera if desired
-          target: useFixedAxis ? target : viewState.target
-        }
-      : null;
+    return viewState.id === id ? {
+      ...viewState,
+      // fix the center of the camera if desired
+      target: useFixedAxis ? target : viewState.target
+    } : null;
   }
   getLayers({ props }) {
     const { loader } = props;
@@ -6614,56 +5990,9 @@ class VolumeView extends VivView {
   }
 }
 
-function _nullishCoalesce(lhs, rhsFn) {
-  if (lhs != null) {
-    return lhs;
-  } else {
-    return rhsFn();
-  }
-}
-function _optionalChain(ops) {
-  let lastAccessLHS = undefined;
-  let value = ops[0];
-  let i = 1;
-  while (i < ops.length) {
-    const op = ops[i];
-    const fn = ops[i + 1];
-    i += 2;
-    if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) {
-      return undefined;
-    }
-    if (op === 'access' || op === 'optionalAccess') {
-      lastAccessLHS = value;
-      value = fn(value);
-    } else if (op === 'call' || op === 'optionalCall') {
-      value = fn((...args) => value.call(lastAccessLHS, ...args));
-      lastAccessLHS = undefined;
-    }
-  }
-  return value;
-}
+function _nullishCoalesce(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 const areViewStatesEqual = (viewState, otherViewState) => {
-  return (
-    otherViewState === viewState ||
-    (_optionalChain([viewState, 'optionalAccess', _ => _.zoom]) ===
-      _optionalChain([otherViewState, 'optionalAccess', _2 => _2.zoom]) &&
-      _optionalChain([viewState, 'optionalAccess', _3 => _3.rotationX]) ===
-        _optionalChain([
-          otherViewState,
-          'optionalAccess',
-          _4 => _4.rotationX
-        ]) &&
-      _optionalChain([viewState, 'optionalAccess', _5 => _5.rotationOrbit]) ===
-        _optionalChain([
-          otherViewState,
-          'optionalAccess',
-          _6 => _6.rotationOrbit
-        ]) &&
-      equal(
-        _optionalChain([viewState, 'optionalAccess', _7 => _7.target]),
-        _optionalChain([otherViewState, 'optionalAccess', _8 => _8.target])
-      ))
-  );
+  return otherViewState === viewState || _optionalChain([viewState, 'optionalAccess', _ => _.zoom]) === _optionalChain([otherViewState, 'optionalAccess', _2 => _2.zoom]) && _optionalChain([viewState, 'optionalAccess', _3 => _3.rotationX]) === _optionalChain([otherViewState, 'optionalAccess', _4 => _4.rotationX]) && _optionalChain([viewState, 'optionalAccess', _5 => _5.rotationOrbit]) === _optionalChain([otherViewState, 'optionalAccess', _6 => _6.rotationOrbit]) && equal(_optionalChain([viewState, 'optionalAccess', _7 => _7.target]), _optionalChain([otherViewState, 'optionalAccess', _8 => _8.target]));
 };
 class VivViewerWrapper extends React.PureComponent {
   constructor(props) {
@@ -6673,9 +6002,9 @@ class VivViewerWrapper extends React.PureComponent {
     };
     const { viewStates } = this.state;
     const { views, viewStates: initialViewStates } = this.props;
-    views.forEach(view => {
+    views.forEach((view) => {
       viewStates[view.id] = view.filterViewState({
-        viewState: initialViewStates.find(v => v.id === view.id)
+        viewState: initialViewStates.find((v) => v.id === view.id)
       });
     });
     this._onViewStateChange = this._onViewStateChange.bind(this);
@@ -6700,21 +6029,15 @@ class VivViewerWrapper extends React.PureComponent {
    */
   _onViewStateChange({ viewId, viewState, interactionState, oldViewState }) {
     const { views, onViewStateChange } = this.props;
-    viewState =
-      _optionalChain([
-        onViewStateChange,
-        'optionalCall',
-        _9 =>
-          _9({
-            viewId,
-            viewState,
-            interactionState,
-            oldViewState
-          })
-      ]) || viewState;
-    this.setState(prevState => {
+    viewState = _optionalChain([onViewStateChange, 'optionalCall', _9 => _9({
+      viewId,
+      viewState,
+      interactionState,
+      oldViewState
+    })]) || viewState;
+    this.setState((prevState) => {
       const viewStates = {};
-      views.forEach(view => {
+      views.forEach((view) => {
         const currentViewState = prevState.viewStates[view.id];
         viewStates[view.id] = view.filterViewState({
           viewState: { ...viewState, id: viewId },
@@ -6731,28 +6054,16 @@ class VivViewerWrapper extends React.PureComponent {
     const { views } = props;
     const viewStates = { ...this.state.viewStates };
     let anyChanged = false;
-    views.forEach(view => {
-      const currViewState = _optionalChain([
-        props,
-        'access',
-        _10 => _10.viewStates,
-        'optionalAccess',
-        _11 => _11.find,
-        'call',
-        _12 => _12(viewState => viewState.id === view.id)
-      ]);
+    views.forEach((view) => {
+      const currViewState = _optionalChain([props, 'access', _10 => _10.viewStates, 'optionalAccess', _11 => _11.find, 'call', _12 => _12(
+        (viewState) => viewState.id === view.id
+      )]);
       if (!currViewState) {
         return;
       }
-      const prevViewState = _optionalChain([
-        prevProps,
-        'access',
-        _13 => _13.viewStates,
-        'optionalAccess',
-        _14 => _14.find,
-        'call',
-        _15 => _15(viewState => viewState.id === view.id)
-      ]);
+      const prevViewState = _optionalChain([prevProps, 'access', _13 => _13.viewStates, 'optionalAccess', _14 => _14.find, 'call', _15 => _15(
+        (viewState) => viewState.id === view.id
+      )]);
       if (areViewStatesEqual(currViewState, prevViewState)) {
         return;
       }
@@ -6778,22 +6089,16 @@ class VivViewerWrapper extends React.PureComponent {
    */
   static getDerivedStateFromProps(props, prevState) {
     const { views, viewStates: viewStatesProps } = props;
-    if (
-      views.some(
-        view =>
-          !prevState.viewStates[view.id] ||
-          view.height !== prevState.viewStates[view.id].height ||
-          view.width !== prevState.viewStates[view.id].width
-      )
-    ) {
+    if (views.some(
+      (view) => !prevState.viewStates[view.id] || view.height !== prevState.viewStates[view.id].height || view.width !== prevState.viewStates[view.id].width
+    )) {
       const viewStates = {};
-      views.forEach(view => {
+      views.forEach((view) => {
         const { height, width } = view;
         const currentViewState = prevState.viewStates[view.id];
         viewStates[view.id] = view.filterViewState({
           viewState: {
-            ...(currentViewState ||
-              viewStatesProps.find(v => v.id === view.id)),
+            ...currentViewState || viewStatesProps.find((v) => v.id === view.id),
             height,
             width,
             id: view.id
@@ -6813,9 +6118,11 @@ class VivViewerWrapper extends React.PureComponent {
     if (!hoverHooks || !coordinate || !layer) {
       return null;
     }
-    const { handleValue = () => {}, handleCoordnate = () => {} } = hoverHooks;
+    const { handleValue = () => {
+    }, handleCoordnate = () => {
+    } } = hoverHooks;
     let hoverData;
-    if (layer.id.includes('Tiled')) {
+    if (layer.id.includes("Tiled")) {
       if (!_optionalChain([tile, 'optionalAccess', _16 => _16.content])) {
         return null;
       }
@@ -6844,7 +6151,7 @@ class VivViewerWrapper extends React.PureComponent {
         Math.floor((coordinate[1] - bounds[3]) / layerZoomScale)
       ];
       const coords = dataCoords[1] * width + dataCoords[0];
-      hoverData = data.map(d => d[coords]);
+      hoverData = data.map((d) => d[coords]);
     } else {
       const { channelData } = layer.props;
       if (!channelData) {
@@ -6862,7 +6169,7 @@ class VivViewerWrapper extends React.PureComponent {
         Math.floor((coordinate[1] - bounds[3]) / layerZoomScale)
       ];
       const coords = dataCoords[1] * width + dataCoords[0];
-      hoverData = data.map(d => d[coords]);
+      hoverData = data.map((d) => d[coords]);
     }
     handleValue(hoverData);
     handleCoordnate(coordinate);
@@ -6874,8 +6181,8 @@ class VivViewerWrapper extends React.PureComponent {
     const { onHover } = this;
     const { viewStates } = this.state;
     const { views, layerProps } = this.props;
-    return views.map((view, i) =>
-      view.getLayers({
+    return views.map(
+      (view, i) => view.getLayers({
         viewStates,
         props: {
           ...layerProps[i],
@@ -6887,7 +6194,7 @@ class VivViewerWrapper extends React.PureComponent {
   render() {
     const { views, randomize, useDevicePixels = true, deckProps } = this.props;
     const { viewStates } = this.state;
-    const deckGLViews = views.map(view => view.getDeckGlView());
+    const deckGLViews = views.map((view) => view.getDeckGlView());
     if (randomize) {
       const random = Math.random();
       const holdFirstElement = deckGLViews[0];
@@ -6896,28 +6203,26 @@ class VivViewerWrapper extends React.PureComponent {
       deckGLViews[0] = deckGLViews[randomizedIndex];
       deckGLViews[randomizedIndex] = holdFirstElement;
     }
-    return /* @__PURE__ */ React.createElement(DeckGL, {
-      ..._nullishCoalesce(deckProps, () => ({})),
-      layerFilter: this.layerFilter,
-      layers:
-        _optionalChain([deckProps, 'optionalAccess', _17 => _17.layers]) ===
-        void 0
-          ? [...this._renderLayers()]
-          : [...this._renderLayers(), ...deckProps.layers],
-      onViewStateChange: this._onViewStateChange,
-      views: deckGLViews,
-      viewState: viewStates,
-      useDevicePixels,
-      getCursor: ({ isDragging }) => {
-        return isDragging ? 'grabbing' : 'crosshair';
+    return /* @__PURE__ */ React.createElement(
+      DeckGL,
+      {
+        ..._nullishCoalesce(deckProps, () => ( {})),
+        layerFilter: this.layerFilter,
+        layers: _optionalChain([deckProps, 'optionalAccess', _17 => _17.layers]) === void 0 ? [...this._renderLayers()] : [...this._renderLayers(), ...deckProps.layers],
+        onViewStateChange: this._onViewStateChange,
+        views: deckGLViews,
+        viewState: viewStates,
+        useDevicePixels,
+        getCursor: ({ isDragging }) => {
+          return isDragging ? "grabbing" : "crosshair";
+        }
       }
-    });
+    );
   }
 }
-const VivViewer = props =>
-  /* @__PURE__ */ React.createElement(VivViewerWrapper, { ...props });
+const VivViewer = (props) => /* @__PURE__ */ React.createElement(VivViewerWrapper, { ...props });
 
-const PictureInPictureViewer = props => {
+const PictureInPictureViewer = (props) => {
   const {
     loader,
     contrastLimits,
@@ -6928,7 +6233,9 @@ const PictureInPictureViewer = props => {
     overview,
     overviewOn,
     selections,
-    hoverHooks = { handleValue: () => {}, handleCoordinate: () => {} },
+    hoverHooks = { handleValue: () => {
+    }, handleCoordinate: () => {
+    } },
     height,
     width,
     lensEnabled = false,
@@ -6945,18 +6252,9 @@ const PictureInPictureViewer = props => {
     extensions = [new ColorPaletteExtension()],
     deckProps
   } = props;
-  const detailViewState = _optionalChain([
-    viewStatesProp,
-    'optionalAccess',
-    _18 => _18.find,
-    'call',
-    _19 => _19(v => v.id === DETAIL_VIEW_ID)
-  ]);
+  const detailViewState = _optionalChain([viewStatesProp, 'optionalAccess', _18 => _18.find, 'call', _19 => _19((v) => v.id === DETAIL_VIEW_ID)]);
   const baseViewState = React.useMemo(() => {
-    return (
-      detailViewState ||
-      getDefaultInitialViewState(loader, { height, width }, 0.5)
-    );
+    return detailViewState || getDefaultInitialViewState(loader, { height, width }, 0.5);
   }, [loader, detailViewState]);
   const detailView = new DetailView({
     id: DETAIL_VIEW_ID,
@@ -6982,13 +6280,9 @@ const PictureInPictureViewer = props => {
   const views = [detailView];
   const layerProps = [layerConfig];
   const viewStates = [{ ...baseViewState, id: DETAIL_VIEW_ID }];
-  const scalebarViewState = _optionalChain([
-    viewStatesProp,
-    'optionalAccess',
-    _20 => _20.find,
-    'call',
-    _21 => _21(v => v.id === SCALEBAR_VIEW_ID)
-  ]) || { ...baseViewState, id: SCALEBAR_VIEW_ID };
+  const scalebarViewState = _optionalChain([viewStatesProp, 'optionalAccess', _20 => _20.find, 'call', _21 => _21(
+    (v) => v.id === SCALEBAR_VIEW_ID
+  )]) || { ...baseViewState, id: SCALEBAR_VIEW_ID };
   const scaleBarView = new ScaleBarView({
     id: SCALEBAR_VIEW_ID,
     width,
@@ -7001,13 +6295,9 @@ const PictureInPictureViewer = props => {
   layerProps.push(layerConfig);
   viewStates.push(scalebarViewState);
   if (overviewOn && loader) {
-    const overviewViewState = _optionalChain([
-      viewStatesProp,
-      'optionalAccess',
-      _22 => _22.find,
-      'call',
-      _23 => _23(v => v.id === OVERVIEW_VIEW_ID)
-    ]) || { ...baseViewState, id: OVERVIEW_VIEW_ID };
+    const overviewViewState = _optionalChain([viewStatesProp, 'optionalAccess', _22 => _22.find, 'call', _23 => _23(
+      (v) => v.id === OVERVIEW_VIEW_ID
+    )]) || { ...baseViewState, id: OVERVIEW_VIEW_ID };
     const overviewView = new OverviewView({
       id: OVERVIEW_VIEW_ID,
       loader,
@@ -7020,19 +6310,23 @@ const PictureInPictureViewer = props => {
     layerProps.push({ ...layerConfig, lensEnabled: false });
     viewStates.push(overviewViewState);
   }
-  if (!loader) return null;
-  return /* @__PURE__ */ React.createElement(VivViewer, {
-    layerProps,
-    views,
-    viewStates,
-    hoverHooks,
-    onViewStateChange,
-    onHover,
-    deckProps
-  });
+  if (!loader)
+    return null;
+  return /* @__PURE__ */ React.createElement(
+    VivViewer,
+    {
+      layerProps,
+      views,
+      viewStates,
+      hoverHooks,
+      onViewStateChange,
+      onHover,
+      deckProps
+    }
+  );
 };
 
-const SideBySideViewer = props => {
+const SideBySideViewer = (props) => {
   const {
     loader,
     contrastLimits,
@@ -7058,36 +6352,12 @@ const SideBySideViewer = props => {
     extensions = [new ColorPaletteExtension()],
     deckProps
   } = props;
-  const leftViewState = _optionalChain([
-    viewStatesProp,
-    'optionalAccess',
-    _24 => _24.find,
-    'call',
-    _25 => _25(v => v.id === 'left')
-  ]);
-  const rightViewState = _optionalChain([
-    viewStatesProp,
-    'optionalAccess',
-    _26 => _26.find,
-    'call',
-    _27 => _27(v => v.id === 'right')
-  ]);
+  const leftViewState = _optionalChain([viewStatesProp, 'optionalAccess', _24 => _24.find, 'call', _25 => _25((v) => v.id === "left")]);
+  const rightViewState = _optionalChain([viewStatesProp, 'optionalAccess', _26 => _26.find, 'call', _27 => _27((v) => v.id === "right")]);
   const leftId = `left-${SCALEBAR_VIEW_ID}`;
   const rightId = `right-${SCALEBAR_VIEW_ID}`;
-  const leftScalebarViewState = _optionalChain([
-    viewStatesProp,
-    'optionalAccess',
-    _28 => _28.find,
-    'call',
-    _29 => _29(v => v.id === leftId)
-  ]);
-  const rightScalebarViewState = _optionalChain([
-    viewStatesProp,
-    'optionalAccess',
-    _30 => _30.find,
-    'call',
-    _31 => _31(v => v.id === rightId)
-  ]);
+  const leftScalebarViewState = _optionalChain([viewStatesProp, 'optionalAccess', _28 => _28.find, 'call', _29 => _29((v) => v.id === leftId)]);
+  const rightScalebarViewState = _optionalChain([viewStatesProp, 'optionalAccess', _30 => _30.find, 'call', _31 => _31((v) => v.id === rightId)]);
   const viewStates = React.useMemo(() => {
     if (leftViewState && rightViewState) {
       return viewStatesProp;
@@ -7098,24 +6368,24 @@ const SideBySideViewer = props => {
       0.5
     );
     return [
-      leftViewState || { ...defaultViewState, id: 'left' },
-      rightViewState || { ...defaultViewState, id: 'right' },
+      leftViewState || { ...defaultViewState, id: "left" },
+      rightViewState || { ...defaultViewState, id: "right" },
       leftScalebarViewState || { ...defaultViewState, id: leftId },
       rightScalebarViewState || { ...defaultViewState, id: rightId }
     ];
   }, [loader, leftViewState, rightViewState]);
   const detailViewLeft = new SideBySideView({
-    id: 'left',
-    linkedIds: ['right'],
+    id: "left",
+    linkedIds: ["right"],
     panLock,
     zoomLock,
     height,
     width: width / 2
   });
   const detailViewRight = new SideBySideView({
-    id: 'right',
+    id: "right",
     x: width / 2,
-    linkedIds: ['left'],
+    linkedIds: ["left"],
     panLock,
     zoomLock,
     height,
@@ -7143,7 +6413,7 @@ const SideBySideViewer = props => {
     height,
     loader,
     snap: snapScaleBar,
-    imageViewId: 'left'
+    imageViewId: "left"
   });
   const rightScaleBarView = new ScaleBarView({
     id: rightId,
@@ -7152,7 +6422,7 @@ const SideBySideViewer = props => {
     x: width / 2,
     loader,
     snap: snapScaleBar,
-    imageViewId: 'right'
+    imageViewId: "right"
   });
   const views = [
     detailViewRight,
@@ -7162,20 +6432,21 @@ const SideBySideViewer = props => {
   ];
   const layerProps = [layerConfig, layerConfig, layerConfig, layerConfig];
   const finalViewStates = [...viewStates];
-  return loader
-    ? /* @__PURE__ */ React.createElement(VivViewer, {
-        layerProps,
-        views,
-        randomize: true,
-        onViewStateChange,
-        onHover,
-        viewStates: finalViewStates,
-        deckProps
-      })
-    : null;
+  return loader ? /* @__PURE__ */ React.createElement(
+    VivViewer,
+    {
+      layerProps,
+      views,
+      randomize: true,
+      onViewStateChange,
+      onHover,
+      viewStates: finalViewStates,
+      deckProps
+    }
+  ) : null;
 };
 
-const VolumeViewer = props => {
+const VolumeViewer = (props) => {
   const {
     loader,
     contrastLimits,
@@ -7197,17 +6468,7 @@ const VolumeViewer = props => {
     useFixedAxis = true,
     extensions = [new ColorPalette3DExtensions.AdditiveBlendExtension()]
   } = props;
-  const volumeViewState = _optionalChain([
-    viewStatesProp,
-    'optionalAccess',
-    _32 => _32.find,
-    'call',
-    _33 =>
-      _33(
-        state =>
-          _optionalChain([state, 'optionalAccess', _34 => _34.id]) === '3d'
-      )
-  ]);
+  const volumeViewState = _optionalChain([viewStatesProp, 'optionalAccess', _32 => _32.find, 'call', _33 => _33((state) => _optionalChain([state, 'optionalAccess', _34 => _34.id]) === "3d")]);
   const initialViewState = React.useMemo(() => {
     if (volumeViewState) {
       return volumeViewState;
@@ -7225,9 +6486,9 @@ const VolumeViewer = props => {
       rotationOrbit: 0
     };
   }, [loader, resolution, modelMatrix]);
-  const viewStates = [volumeViewState || { ...initialViewState, id: '3d' }];
+  const viewStates = [volumeViewState || { ...initialViewState, id: "3d" }];
   const volumeView = new VolumeView({
-    id: '3d',
+    id: "3d",
     target: viewStates[0].target,
     useFixedAxis
   });
@@ -7250,56 +6511,16 @@ const VolumeViewer = props => {
   };
   const views = [volumeView];
   const layerProps = [layerConfig];
-  return loader
-    ? /* @__PURE__ */ React.createElement(VivViewer, {
-        layerProps,
-        views,
-        viewStates,
-        onViewStateChange,
-        useDevicePixels: false
-      })
-    : null;
+  return loader ? /* @__PURE__ */ React.createElement(
+    VivViewer,
+    {
+      layerProps,
+      views,
+      viewStates,
+      onViewStateChange,
+      useDevicePixels: false
+    }
+  ) : null;
 };
 
-export {
-  AdditiveColormap3DExtensions,
-  AdditiveColormapExtension,
-  BitmapLayer,
-  COLORMAPS,
-  ColorPalette3DExtensions,
-  ColorPaletteExtension,
-  DEPRECATED_loadBioformatsZarr,
-  DETAIL_VIEW_ID,
-  DTYPE_VALUES,
-  DetailView,
-  ImageLayer,
-  LensExtension,
-  MAX_CHANNELS,
-  MultiscaleImageLayer,
-  OVERVIEW_VIEW_ID,
-  OverviewLayer,
-  OverviewView,
-  PictureInPictureViewer,
-  RENDERING_MODES,
-  SIGNAL_ABORTED,
-  ScaleBarLayer,
-  SideBySideView,
-  SideBySideViewer,
-  TiffPixelSource,
-  VivView,
-  VivViewer,
-  VolumeLayer,
-  VolumeView,
-  VolumeViewer,
-  XR3DLayer,
-  XRLayer,
-  ZarrPixelSource,
-  getChannelStats,
-  getDefaultInitialViewState,
-  getImageSize,
-  isInterleaved,
-  loadMultiTiff,
-  loadOmeTiff,
-  loadOmeZarr,
-  load as loadOmeZarrFromStore
-};
+export { AdditiveColormap3DExtensions, AdditiveColormapExtension, BitmapLayer, COLORMAPS, ColorPalette3DExtensions, ColorPaletteExtension, DEPRECATED_loadBioformatsZarr, DETAIL_VIEW_ID, DTYPE_VALUES, DetailView, ImageLayer, LensExtension, MAX_CHANNELS, MultiscaleImageLayer, OVERVIEW_VIEW_ID, OverviewLayer, OverviewView, PictureInPictureViewer, RENDERING_MODES, SIGNAL_ABORTED, ScaleBarLayer, SideBySideView, SideBySideViewer, TiffPixelSource, VivView, VivViewer, VolumeLayer, VolumeView, VolumeViewer, XR3DLayer, XRLayer, ZarrPixelSource, getChannelStats, getDefaultInitialViewState, getImageSize, isInterleaved, loadMultiTiff, loadOmeTiff, loadOmeZarr, load as loadOmeZarrFromStore };

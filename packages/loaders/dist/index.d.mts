@@ -1,97 +1,65 @@
-import type {
-  Labels,
-  PixelData,
-  PixelSource,
-  PixelSourceMeta,
-  PixelSourceSelection,
-  RasterSelection,
-  SupportedDtype,
-  TileSelection
-} from '@vivjs/types';
-import { type GeoTIFFImage, Pool } from 'geotiff';
-import type * as zarr from 'zarrita';
+import { Pool, GeoTIFFImage } from 'geotiff';
+import { PixelSource, SupportedDtype, Labels, PixelSourceMeta, PixelSourceSelection, RasterSelection, PixelData, TileSelection } from '@vivjs/types';
+import * as zarr from 'zarrita';
 
 type OmeXml = {
-  images?: any[];
-  rois?: any[];
-  roiRefs?: any[];
+    images?: any[];
+    rois?: any[];
+    roiRefs?: any[];
 };
 
 declare class export_default extends Pool {
-  constructor();
+    constructor();
 }
 
 declare class TiffPixelSource<S extends string[]> implements PixelSource<S> {
-  dtype: SupportedDtype;
-  tileSize: number;
-  shape: number[];
-  labels: Labels<S>;
-  meta?: PixelSourceMeta | undefined;
-  pool?: export_default | undefined;
-  private _indexer;
-  constructor(
-    indexer: (sel: PixelSourceSelection<S>) => Promise<GeoTIFFImage>,
-    dtype: SupportedDtype,
-    tileSize: number,
-    shape: number[],
-    labels: Labels<S>,
-    meta?: PixelSourceMeta | undefined,
-    pool?: export_default | undefined
-  );
-  getRaster({ selection, signal }: RasterSelection<S>): Promise<PixelData>;
-  getTile({ x, y, selection, signal }: TileSelection<S>): Promise<PixelData>;
-  private _readRasters;
-  private _getTileExtent;
-  onTileError(err: Error): void;
+    dtype: SupportedDtype;
+    tileSize: number;
+    shape: number[];
+    labels: Labels<S>;
+    meta?: PixelSourceMeta | undefined;
+    pool?: export_default | undefined;
+    private _indexer;
+    constructor(indexer: (sel: PixelSourceSelection<S>) => Promise<GeoTIFFImage>, dtype: SupportedDtype, tileSize: number, shape: number[], labels: Labels<S>, meta?: PixelSourceMeta | undefined, pool?: export_default | undefined);
+    getRaster({ selection, signal }: RasterSelection<S>): Promise<PixelData>;
+    getTile({ x, y, selection, signal }: TileSelection<S>): Promise<PixelData>;
+    private _readRasters;
+    private _getTileExtent;
+    onTileError(err: Error): void;
 }
 
-type OmeTiffDims =
-  | ['t', 'c', 'z']
-  | ['z', 't', 'c']
-  | ['t', 'z', 'c']
-  | ['c', 'z', 't']
-  | ['z', 'c', 't']
-  | ['c', 't', 'z'];
+type OmeTiffDims = ['t', 'c', 'z'] | ['z', 't', 'c'] | ['t', 'z', 'c'] | ['c', 'z', 't'] | ['z', 'c', 't'] | ['c', 't', 'z'];
 interface OmeTiffSelection {
-  t: number;
-  c: number;
-  z: number;
+    t: number;
+    c: number;
+    z: number;
 }
 
 interface TiffOptions {
-  headers?: Headers | Record<string, string>;
-  offsets?: number[];
-  pool?: Pool;
+    headers?: Headers | Record<string, string>;
+    offsets?: number[];
+    pool?: Pool;
 }
 interface MultiTiffOptions {
-  pool?: Pool;
-  name?: string;
-  channelNames?: string[];
-  headers?: Headers | Record<string, string>;
+    pool?: Pool;
+    name?: string;
+    channelNames?: string[];
+    headers?: Headers | Record<string, string>;
 }
 type OmeTiffImage = {
-  data: TiffPixelSource<OmeTiffDims>[];
-  metadata: OmeXml[number];
+    data: TiffPixelSource<OmeTiffDims>[];
+    metadata: OmeXml[number];
 };
 /** @ignore */
-declare function loadOmeTiff(
-  source: string | File,
-  opts: TiffOptions & {
+declare function loadOmeTiff(source: string | File, opts: TiffOptions & {
     images: 'all';
-  }
-): Promise<OmeTiffImage[]>;
+}): Promise<OmeTiffImage[]>;
 /** @ignore */
-declare function loadOmeTiff(
-  source: string | File,
-  opts: TiffOptions & {
+declare function loadOmeTiff(source: string | File, opts: TiffOptions & {
     images: 'first';
-  }
-): Promise<OmeTiffImage>;
+}): Promise<OmeTiffImage>;
 /** @ignore */
-declare function loadOmeTiff(
-  source: string | File,
-  opts: TiffOptions
-): Promise<OmeTiffImage>;
+declare function loadOmeTiff(source: string | File, opts: TiffOptions): Promise<OmeTiffImage>;
 /** @ignore */
 declare function loadOmeTiff(source: string | File): Promise<OmeTiffImage>;
 /**
@@ -120,140 +88,123 @@ declare function loadOmeTiff(source: string | File): Promise<OmeTiffImage>;
  * @param {Headers=} opts.headers - Headers passed to each underlying fetch request.
  * @return {Promise<{ data: TiffPixelSource[], metadata: ImageMeta }>} data source and associated metadata.
  */
-declare function loadMultiTiff(
-  sources: [
+declare function loadMultiTiff(sources: [
     OmeTiffSelection | (OmeTiffSelection | undefined)[],
-    (
-      | string
-      | (File & {
-          path: string;
-        })
-    )
-  ][],
-  opts?: MultiTiffOptions
-): Promise<{
-  data: TiffPixelSource<string[]>[];
-  metadata: {
-    ID: string;
-    Name: string;
-    AcquisitionDate: string;
-    Description: string;
-    Pixels: {
-      BigEndian: boolean;
-      DimensionOrder: 'XYZCT' | 'XYZTC' | 'XYCTZ' | 'XYCZT' | 'XYTCZ' | 'XYTZC';
-      ID: string;
-      SizeC: number;
-      SizeT: number;
-      SizeX: number;
-      SizeY: number;
-      SizeZ: number;
-      Type: string;
-      Channels: {
+    string | (File & {
+        path: string;
+    })
+][], opts?: MultiTiffOptions): Promise<{
+    data: TiffPixelSource<string[]>[];
+    metadata: {
         ID: string;
         Name: string;
-        SamplesPerPixel: number;
-      }[];
+        AcquisitionDate: string;
+        Description: string;
+        Pixels: {
+            BigEndian: boolean;
+            DimensionOrder: "XYZCT" | "XYZTC" | "XYCTZ" | "XYCZT" | "XYTCZ" | "XYTZC";
+            ID: string;
+            SizeC: number;
+            SizeT: number;
+            SizeX: number;
+            SizeY: number;
+            SizeZ: number;
+            Type: string;
+            Channels: {
+                ID: string;
+                Name: string;
+                SamplesPerPixel: number;
+            }[];
+        };
+        format: () => {
+            'Acquisition Date': string;
+            'Dimensions (XY)': string;
+            PixelsType: string;
+            'Z-sections/Timepoints': string;
+            Channels: number;
+        };
     };
-    format: () => {
-      'Acquisition Date': string;
-      'Dimensions (XY)': string;
-      PixelsType: string;
-      'Z-sections/Timepoints': string;
-      Channels: number;
-    };
-  };
 }>;
 
 /**
  * For convenience - similar-ish interface to ZarrArray from non-zarrita zarr implementation.
  */
 type ZarrArray = zarr.Array<zarr.DataType>;
-type TypedArray =
-  | Int8Array
-  | Uint8Array
-  | Int16Array
-  | Uint16Array
-  | Int32Array
-  | Uint32Array
-  | Float32Array
-  | Float64Array;
+type TypedArray = Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array;
 
 interface ZarrTileSelection {
-  x: number;
-  y: number;
-  selection: number[];
-  signal?: AbortSignal;
+    x: number;
+    y: number;
+    selection: number[];
+    signal?: AbortSignal;
 }
 interface ZarrRasterSelection {
-  selection: number[];
-  signal?: AbortSignal;
+    selection: number[];
+    signal?: AbortSignal;
 }
 declare class ZarrPixelSource<S extends string[]> implements PixelSource<S> {
-  labels: Labels<S>;
-  tileSize: number;
-  private _data;
-  private _indexer;
-  constructor(data: ZarrArray, labels: Labels<S>, tileSize: number);
-  get shape(): number[];
-  get dtype(): SupportedDtype;
-  private get _xIndex();
-  private _chunkIndex;
-  /**
-   * Converts x, y tile indices to zarr dimension Slices within image bounds.
-   */
-  private _getSlices;
-  private _getRaw;
-  getRaster({
-    selection,
-    signal
-  }: RasterSelection<S> | ZarrRasterSelection): Promise<PixelData>;
-  getTile(props: TileSelection<S> | ZarrTileSelection): Promise<PixelData>;
-  onTileError(err: Error): void;
+    labels: Labels<S>;
+    tileSize: number;
+    private _data;
+    private _indexer;
+    constructor(data: ZarrArray, labels: Labels<S>, tileSize: number);
+    get shape(): number[];
+    get dtype(): SupportedDtype;
+    private get _xIndex();
+    private _chunkIndex;
+    /**
+     * Converts x, y tile indices to zarr dimension Slices within image bounds.
+     */
+    private _getSlices;
+    private _getRaw;
+    getRaster({ selection, signal }: RasterSelection<S> | ZarrRasterSelection): Promise<PixelData>;
+    getTile(props: TileSelection<S> | ZarrTileSelection): Promise<PixelData>;
+    onTileError(err: Error): void;
 }
 
 interface Channel {
-  channelsVisible: boolean;
-  color: string;
-  label: string;
-  window: {
-    min?: number;
-    max?: number;
-    start: number;
-    end: number;
-  };
+    channelsVisible: boolean;
+    color: string;
+    label: string;
+    window: {
+        min?: number;
+        max?: number;
+        start: number;
+        end: number;
+    };
 }
 interface Omero {
-  channels: Channel[];
-  rdefs: {
-    defaultT?: number;
-    defaultZ?: number;
-    model: string;
-  };
-  name?: string;
+    channels: Channel[];
+    rdefs: {
+        defaultT?: number;
+        defaultZ?: number;
+        model: string;
+    };
+    name?: string;
 }
 interface Axis {
-  name: string;
-  type?: string;
-  unit?: string;
+    name: string;
+    type?: string;
+    unit?: string;
 }
 interface Multiscale {
-  datasets: {
-    path: string;
-  }[];
-  axes?: string[] | Axis[];
-  version?: string;
+    datasets: {
+        path: string;
+    }[];
+    axes?: string[] | Axis[];
+    version?: string;
 }
 interface RootAttrs {
-  omero: Omero;
-  multiscales: Multiscale[];
+    omero: Omero;
+    multiscales: Multiscale[];
 }
 declare function load(store: ZarrArray['store']): Promise<{
-  data: ZarrPixelSource<string[]>[];
-  metadata: RootAttrs;
+    data: ZarrPixelSource<string[]>[];
+    metadata: RootAttrs;
 }>;
 
 interface ZarrOptions {
-  fetchOptions: RequestInit;
+    fetchOptions: RequestInit;
 }
 /**
  * Opens root of multiscale OME-Zarr via URL.
@@ -262,16 +213,11 @@ interface ZarrOptions {
  * @param options
  * @return data source and associated OME-Zarr metadata.
  */
-declare function loadOmeZarr(
-  source: string,
-  options?: Partial<
-    ZarrOptions & {
-      type: 'multiscales';
-    }
-  >
-): Promise<{
-  data: ZarrPixelSource<string[]>[];
-  metadata: RootAttrs;
+declare function loadOmeZarr(source: string, options?: Partial<ZarrOptions & {
+    type: 'multiscales';
+}>): Promise<{
+    data: ZarrPixelSource<string[]>[];
+    metadata: RootAttrs;
 }>;
 /**
  * DEPRECATED: This function is designed to load Zarr data generated by an old version of bioformats2raw
@@ -290,16 +236,11 @@ declare function loadOmeZarr(
  * @param options
  * @return data source and associated OMEXML metadata.
  */
-declare function DEPRECATED_loadBioformatsZarr(
-  source:
-    | string
-    | (File & {
-        path: string;
-      })[],
-  options?: Partial<ZarrOptions>
-): Promise<{
-  data: ZarrPixelSource<string[]>[];
-  metadata: any;
+declare function DEPRECATED_loadBioformatsZarr(source: string | (File & {
+    path: string;
+})[], options?: Partial<ZarrOptions>): Promise<{
+    data: ZarrPixelSource<string[]>[];
+    metadata: any;
 }>;
 
 /**
@@ -313,34 +254,20 @@ declare function DEPRECATED_loadBioformatsZarr(
  * @return {{ mean: number, sd: number, q1: number, q3: number, median: number, domain: number[], contrastLimits: number[] }}
  */
 declare function getChannelStats(arr: TypedArray): {
-  mean: number;
-  sd: number;
-  q1: number;
-  q3: number;
-  median: number;
-  domain: number[];
-  contrastLimits: number[];
+    mean: number;
+    sd: number;
+    q1: number;
+    q3: number;
+    median: number;
+    domain: number[];
+    contrastLimits: number[];
 };
 declare function isInterleaved(shape: number[]): boolean;
-declare function getImageSize<T extends string[]>(
-  source: PixelSource<T>
-): {
-  height: number;
-  width: number;
+declare function getImageSize<T extends string[]>(source: PixelSource<T>): {
+    height: number;
+    width: number;
 };
-declare const SIGNAL_ABORTED = '__vivSignalAborted';
+declare const SIGNAL_ABORTED = "__vivSignalAborted";
 
-export {
-  DEPRECATED_loadBioformatsZarr,
-  SIGNAL_ABORTED,
-  TiffPixelSource,
-  ZarrPixelSource,
-  getChannelStats,
-  getImageSize,
-  isInterleaved,
-  loadMultiTiff,
-  loadOmeTiff,
-  loadOmeZarr,
-  load as loadOmeZarrFromStore
-};
+export { DEPRECATED_loadBioformatsZarr, SIGNAL_ABORTED, TiffPixelSource, ZarrPixelSource, getChannelStats, getImageSize, isInterleaved, loadMultiTiff, loadOmeTiff, loadOmeZarr, load as loadOmeZarrFromStore };
 export type { RootAttrs };
