@@ -22,6 +22,25 @@ export const SCANNER_DEFAULTS: Required<ScannerOptions> = {
   mode: 'adaptive'
 };
 
+/** Validate and normalize scanner options, throwing on invalid combinations. */
+function validateScannerOptions(opts: Required<ScannerOptions>) {
+  if (opts.initialWindowSize <= 0) {
+    throw new Error(
+      `initialWindowSize must be positive, got ${opts.initialWindowSize}`
+    );
+  }
+  if (opts.maxWindowSize <= 0) {
+    throw new Error(
+      `maxWindowSize must be positive, got ${opts.maxWindowSize}`
+    );
+  }
+  if (opts.initialWindowSize > opts.maxWindowSize) {
+    throw new Error(
+      `initialWindowSize (${opts.initialWindowSize}) must not exceed maxWindowSize (${opts.maxWindowSize})`
+    );
+  }
+}
+
 // -- TIFF format helpers --
 
 const LITTLE_ENDIAN = 0x4949; // 'II'
@@ -259,6 +278,7 @@ async function scanIfdOffsets(
   options?: ScannerOptions
 ): Promise<number[]> {
   const opts = { ...SCANNER_DEFAULTS, ...options };
+  validateScannerOptions(opts);
   const windowSize = opts.initialWindowSize;
 
   // 1. Fetch the header (16 bytes covers both classic and BigTIFF).
@@ -364,9 +384,15 @@ async function scanIfdOffsets(
 
     const retry = parseIfd(buf, currentOffset - bufStart, format);
     if (retry === null) {
+      // Re-compute to get the most accurate size for the error.
+      const exactSize = computeRequiredIfdSize(
+        buf,
+        currentOffset - bufStart,
+        format
+      );
       throw new Error(
         `IFD at offset ${currentOffset} could not be parsed after retry ` +
-        `(fetched ${retrySize} bytes, max=${opts.maxWindowSize})`
+        `(required=${exactSize ?? 'unknown'} bytes, fetched=${retrySize}, max=${opts.maxWindowSize})`
       );
     }
     currentOffset = retry.nextIfdOffset;
