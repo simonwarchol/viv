@@ -7,16 +7,16 @@
  */
 
 /** Options for the IFD scanner. */
-interface ScannerOptions {
+export interface ScannerOptions {
   /** Initial byte window to fetch (default 64 KB). */
   initialWindowSize?: number;
   /** Maximum byte window to fetch (default 1 MB). */
   maxWindowSize?: number;
-  /** 'fixed' uses initialWindowSize for every request; 'adaptive' doubles only when current buffer is too small (default 'adaptive'). */
+  /** 'fixed' uses initialWindowSize for every request; 'adaptive' grows only when a buffer is too small to parse the current IFD (default 'adaptive'). */
   mode?: 'fixed' | 'adaptive';
 }
 
-const SCANNER_DEFAULTS: Required<ScannerOptions> = {
+export const SCANNER_DEFAULTS: Required<ScannerOptions> = {
   initialWindowSize: 64 * 1024,
   maxWindowSize: 1024 * 1024,
   mode: 'adaptive'
@@ -83,6 +83,34 @@ function readUint64(
 }
 
 /**
+ * Compute the exact byte size needed to read a complete IFD at `localOffset`.
+ *
+ * Returns the required size from localOffset to the end of the IFD
+ * (including the next-IFD pointer), or `null` if the buffer is too small
+ * to even read the entry count.
+ */
+function computeRequiredIfdSize(
+  buf: ArrayBuffer,
+  localOffset: number,
+  format: TiffFormat
+): number | null {
+  const view = new DataView(buf);
+  const { littleEndian, bigTiff } = format;
+
+  if (bigTiff) {
+    // Need 8 bytes for the entry count.
+    if (localOffset + 8 > buf.byteLength) return null;
+    const entryCount = readUint64(view, localOffset, littleEndian);
+    return 8 + entryCount * 20 + 8;
+  }
+
+  // Classic: need 2 bytes for entry count.
+  if (localOffset + 2 > buf.byteLength) return null;
+  const entryCount = view.getUint16(localOffset, littleEndian);
+  return 2 + entryCount * 12 + 4;
+}
+
+/**
  * Parse one IFD from a buffer at a given local offset.
  *
  * Returns the byte position of the *next* IFD (0 = end of chain) and
@@ -124,27 +152,49 @@ function parseIfd(
 
 // -- Fetching helpers --
 
+/** Result of a range fetch. */
+interface RangeResult {
+  buffer: ArrayBuffer;
+  /**
+   * True if the server returned the full file (200 OK) instead of
+   * a partial response (206). When true, this buffer contains the
+   * entire file and no further fetches are needed.
+   */
+  fullFile: boolean;
+}
+
+/**
+ * Fetch a byte range from a URL.
+ *
+ * Range-request policy:
+ * - 206 Partial Content: expected, returns the requested range.
+ * - 200 OK: the server ignored the Range header and returned the
+ *   entire file. We accept it (the bytes are still valid) but flag
+ *   `fullFile: true` so the caller can avoid further fetches.
+ * - Any other status: throws.
+ */
 async function fetchRange(
   url: string,
   start: number,
   end: number,
   headers?: HeadersInit
-): Promise<ArrayBuffer> {
+): Promise<RangeResult> {
   const resp = await fetch(url, {
     headers: {
       ...normalizeHeaders(headers),
       Range: `bytes=${start}-${end - 1}`
     }
   });
-  // 206 Partial Content is the expected response for Range requests.
-  // Reject 200 OK — it means the server ignored the Range header and
-  // returned the entire file, which defeats the purpose for large TIFFs.
-  if (resp.status !== 206) {
-    throw new Error(
-      `Expected HTTP 206 for range request, got ${resp.status} (bytes=${start}-${end - 1})`
-    );
+  if (resp.status === 206) {
+    return { buffer: await resp.arrayBuffer(), fullFile: false };
   }
-  return resp.arrayBuffer();
+  if (resp.ok) {
+    // Server ignored Range and returned the whole file.
+    return { buffer: await resp.arrayBuffer(), fullFile: true };
+  }
+  throw new Error(
+    `HTTP ${resp.status} fetching range bytes=${start}-${end - 1}`
+  );
 }
 
 function normalizeHeaders(
@@ -179,7 +229,7 @@ async function fetchOffsetsJson(
     if (!resp.ok) return null;
     const data = await resp.json();
     if (!Array.isArray(data) || data.length === 0) return null;
-    // Every element must be a positive safe integer (byte offset).
+    // Every element must be a non-negative safe integer (byte offset).
     for (const n of data) {
       if (typeof n !== 'number' || !Number.isSafeInteger(n) || n < 0) {
         return null;
@@ -197,7 +247,11 @@ async function fetchOffsetsJson(
  * Reads the TIFF header, then fetches byte windows and parses consecutive
  * IFDs from each buffer. Only issues a new request when the next IFD falls
  * outside the current buffer. In adaptive mode, the window size grows only
- * when a buffer is too small to parse the current IFD.
+ * when a buffer is too small to parse the current IFD, using the exact
+ * required IFD size to determine the next fetch.
+ *
+ * If the server does not support Range requests (returns 200 OK), the
+ * full-file response is used as the buffer and no further fetches are made.
  */
 async function scanIfdOffsets(
   url: string,
@@ -205,62 +259,114 @@ async function scanIfdOffsets(
   options?: ScannerOptions
 ): Promise<number[]> {
   const opts = { ...SCANNER_DEFAULTS, ...options };
-  let windowSize = opts.initialWindowSize;
+  const windowSize = opts.initialWindowSize;
 
   // 1. Fetch the header (16 bytes covers both classic and BigTIFF).
-  const headerBuf = await fetchRange(url, 0, 16, headers);
-  const format = parseTiffHeader(headerBuf);
+  const headerResult = await fetchRange(url, 0, 16, headers);
+  const format = parseTiffHeader(headerResult.buffer);
 
   const offsets: number[] = [];
   let currentOffset = format.firstIfdOffset;
   if (currentOffset === 0) return offsets;
 
-  // 2. Walk the IFD chain.
-  let bufStart = -1;
-  let buf: ArrayBuffer = new ArrayBuffer(0);
+  // If the server returned the full file for the header request,
+  // use it as the buffer for all IFD parsing — no further fetches needed.
+  let bufStart: number;
+  let buf: ArrayBuffer;
+  let haveFullFile: boolean;
 
+  if (headerResult.fullFile) {
+    buf = headerResult.buffer;
+    bufStart = 0;
+    haveFullFile = true;
+  } else {
+    buf = new ArrayBuffer(0);
+    bufStart = -1;
+    haveFullFile = false;
+  }
+
+  // 2. Walk the IFD chain.
   while (currentOffset !== 0) {
     offsets.push(currentOffset);
 
     // Ensure currentOffset is within our buffer.
     const localOffset = currentOffset - bufStart;
-    if (bufStart < 0 || localOffset < 0 || localOffset >= buf.byteLength) {
-      // Need to fetch a new window (IFD is outside current buffer).
-      buf = await fetchRange(
+    if (!haveFullFile && (bufStart < 0 || localOffset < 0 || localOffset >= buf.byteLength)) {
+      const result = await fetchRange(
         url,
         currentOffset,
         currentOffset + windowSize,
         headers
       );
+      buf = result.buffer;
       bufStart = currentOffset;
+      if (result.fullFile) {
+        bufStart = 0;
+        haveFullFile = true;
+      }
     }
 
-    const result = parseIfd(buf, currentOffset - bufStart, format);
-    if (result !== null) {
-      currentOffset = result.nextIfdOffset;
+    const parsed = parseIfd(buf, currentOffset - bufStart, format);
+    if (parsed !== null) {
+      currentOffset = parsed.nextIfdOffset;
       continue;
     }
 
-    // Buffer too small to parse this IFD.
-    if (opts.mode === 'fixed' || windowSize >= opts.maxWindowSize) {
+    // Buffer too small to parse this IFD. Compute exact required size.
+    const requiredSize = computeRequiredIfdSize(
+      buf,
+      currentOffset - bufStart,
+      format
+    );
+
+    // If we have the full file and still can't parse, the file is truncated.
+    if (haveFullFile) {
       throw new Error(
-        `IFD at offset ${currentOffset} does not fit in ${windowSize}-byte window (mode=${opts.mode}, max=${opts.maxWindowSize})`
+        `IFD at offset ${currentOffset} extends beyond end of file`
       );
     }
 
-    // Adaptive: grow and retry.
-    windowSize = Math.min(windowSize * 2, opts.maxWindowSize);
-    buf = await fetchRange(
+    // In fixed mode, the window size is the hard limit.
+    if (opts.mode === 'fixed') {
+      throw new Error(
+        `IFD at offset ${currentOffset} requires ${requiredSize ?? '> entry-count header'} bytes, ` +
+        `exceeds fixed window of ${windowSize} bytes`
+      );
+    }
+
+    // Adaptive: fetch exactly the required size (or at least double the
+    // current window, whichever is larger), clamped to maxWindowSize.
+    const neededBytes = requiredSize ?? windowSize * 2;
+    const retrySize = Math.min(
+      Math.max(neededBytes, windowSize * 2),
+      opts.maxWindowSize
+    );
+
+    if (requiredSize !== null && retrySize < requiredSize) {
+      throw new Error(
+        `IFD at offset ${currentOffset} requires ${requiredSize} bytes, ` +
+        `exceeds maxWindowSize of ${opts.maxWindowSize} bytes`
+      );
+    }
+
+    const retryResult = await fetchRange(
       url,
       currentOffset,
-      currentOffset + windowSize,
+      currentOffset + retrySize,
       headers
     );
+    buf = retryResult.buffer;
     bufStart = currentOffset;
-    const retry = parseIfd(buf, 0, format);
+    if (retryResult.fullFile) {
+      bufStart = 0;
+      haveFullFile = true;
+    }
+
+    const retry = parseIfd(buf, currentOffset - bufStart, format);
     if (retry === null) {
       throw new Error(
-        `IFD at offset ${currentOffset} does not fit in ${windowSize}-byte window`
+        `IFD at offset ${currentOffset} could not be parsed after retry ` +
+        `(fetched ${retrySize} bytes, max=${opts.maxWindowSize})`
       );
     }
     currentOffset = retry.nextIfdOffset;
