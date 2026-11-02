@@ -54,6 +54,36 @@ const defaultProps = {
  * @ignore
  */
 const MultiscaleImageLayer = class extends CompositeLayer {
+  updateState(params) {
+    super.updateState(params);
+    const { props, oldProps } = params;
+    if (
+      props.loader === oldProps.loader &&
+      props.modelMatrix === oldProps.modelMatrix
+    ) {
+      return;
+    }
+    const { loader, modelMatrix, id } = props;
+    const { width, height } = getImageSize(loader[0]);
+    const levelZooms = getPyramidZoomLevels(loader);
+    const userScale = modelMatrix ? modelMatrix.getScale() : [1, 1, 1];
+    console.log(`[viv modelMatrix] ${id}`, {
+      modelMatrix: modelMatrix ? Array.from(modelMatrix) : null,
+      modelMatrixScale: userScale,
+      zoomOffset: Math.round(Math.log2(userScale[0])),
+      extent: [0, 0, width, height],
+      tileSize: loader[0].tileSize,
+      levels: loader.map((source, i) => ({
+        ...getImageSize(source),
+        zoom: levelZooms[i],
+        scaleToLevel0: getLevelScale(loader, i)
+      })),
+      minZoom: levelZooms[levelZooms.length - 1],
+      backgroundScale: userScale[0] * getLevelScale(loader, loader.length - 1),
+      physicalSizes: loader[0].meta?.physicalSizes ?? null
+    });
+  }
+
   renderLayers() {
     const {
       loader,

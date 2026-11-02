@@ -277,9 +277,6 @@ export async function loadSingleFileOmeTiff(
       ifdOffset: imageIfdOffset,
       dimensionOrder: metadata['Pixels']['DimensionOrder']
     });
-    const tileSize = getTiffTileSize(
-      await pyramidIndexer({ c: 0, t: 0, z: 0 }, 0)
-    );
     const sourcePhoto = firstImage.fileDirectory.PhotometricInterpretation;
     const meta = {
       physicalSizes: extractPhysicalSizesfromPixels(metadata['Pixels']),
@@ -290,10 +287,17 @@ export async function loadSingleFileOmeTiff(
           : PHOTOMETRIC_RGB
         : sourcePhoto
     };
-    const data = await Promise.all(
-      Array.from({ length: levels }, async (_, level) => {
-        const levelImage = await pyramidIndexer({ t: 0, c: 0, z: 0 }, level);
-        return new TiffPixelSource(
+    const levelImages = await Promise.all(
+      Array.from({ length: levels }, (_, level) =>
+        pyramidIndexer({ t: 0, c: 0, z: 0 }, level)
+      )
+    );
+    // Deck TileLayer uses one tileSize from loader[0]; L0, not the pyramid min.
+    // Coarse IFDs clip oversized windows in TiffPixelSource._getTileExtent.
+    const tileSize = getTiffTileSize(levelImages[0]);
+    const data = levelImages.map(
+      (levelImage, level) =>
+        new TiffPixelSource(
           sel =>
             pyramidIndexer(
               {
@@ -313,8 +317,7 @@ export async function loadSingleFileOmeTiff(
           axes.labels,
           meta,
           pool
-        );
-      })
+        )
     );
     images.push({ data: data as TiffPixelSource<OmeTiffDims>[], metadata });
     imageIfdOffset += imageSize.t * imageSize.z * imageSize.c;

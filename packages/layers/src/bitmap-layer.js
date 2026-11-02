@@ -162,15 +162,17 @@ const BitmapLayer = class extends CompositeLayer {
 
   updateState({ props, oldProps, ...rest }) {
     super.updateState({ props, oldProps, ...rest });
+    // Check before getPreparedImage, which copies RGB to RGBA: TileLayer
+    // re-renders every cached tile on any prop change (e.g. opacity).
+    if (props.image === oldProps?.image && this.state.bitmapTexture) {
+      return;
+    }
     const img = getPreparedImage(props.image);
     if (!img) {
       if (this.state.bitmapTexture) {
         this.state.bitmapTexture.delete();
         this.setState({ bitmapTexture: null });
       }
-      return;
-    }
-    if (props.image === oldProps?.image && this.state.bitmapTexture) {
       return;
     }
     if (this.state.bitmapTexture) {

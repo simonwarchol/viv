@@ -166,6 +166,9 @@ function createOffsetsProxy(tiff, offsets) {
         return target.getImage(index);
       };
     }
+    if (key === "getImageCount") {
+      return async () => offsets.length;
+    }
     if (key === OFFSETS_PROXY_KEY) {
       return true;
     }
@@ -1414,7 +1417,6 @@ async function getPixelSourceOptionsForImage(metadata, config) {
   return {
     pyramidIndexer,
     levels: baseImage.fileDirectory.SubIFDs ? baseImage.fileDirectory.SubIFDs.length + 1 : 1,
-    tileSize: getTiffTileSize(baseImage),
     axes: extractAxesFromPixels(metadata["Pixels"]),
     dtype: parsePixelDataType(metadata["Pixels"]["Type"]),
     meta: {
@@ -1453,30 +1455,34 @@ async function loadMultifileOmeTiff(source, options = {}) {
       headers: options.headers || {}
     });
     const data = await Promise.all(
-      Array.from({ length: opts.levels }, async (_, level) => {
-        const levelImage = await opts.pyramidIndexer(
-          { t: 0, c: 0, z: 0 },
-          level
-        );
-        return new TiffPixelSource(
-          (sel) => opts.pyramidIndexer(
-            { t: sel.t ?? 0, c: sel.c ?? 0, z: sel.z ?? 0 },
-            level
-          ),
-          opts.dtype,
-          opts.tileSize,
-          getShapeForLevel({
-            axes: opts.axes,
-            width: levelImage.getWidth(),
-            height: levelImage.getHeight()
-          }),
-          opts.axes.labels,
-          opts.meta,
-          options.pool
-        );
-      })
+      Array.from(
+        { length: opts.levels },
+        (_, level) => opts.pyramidIndexer({ t: 0, c: 0, z: 0 }, level)
+      )
     );
-    tiffImages.push({ data, metadata });
+    const tileSize = getTiffTileSize(data[0]);
+    const sources = data.map(
+      (levelImage, level) => new TiffPixelSource(
+        (sel) => opts.pyramidIndexer(
+          { t: sel.t ?? 0, c: sel.c ?? 0, z: sel.z ?? 0 },
+          level
+        ),
+        opts.dtype,
+        tileSize,
+        getShapeForLevel({
+          axes: opts.axes,
+          width: levelImage.getWidth(),
+          height: levelImage.getHeight()
+        }),
+        opts.axes.labels,
+        opts.meta,
+        options.pool
+      )
+    );
+    tiffImages.push({
+      data: sources,
+      metadata
+    });
   }
   return tiffImages;
 }
@@ -1626,39 +1632,40 @@ async function loadSingleFileOmeTiff(source, options = {}) {
       ifdOffset: imageIfdOffset,
       dimensionOrder: metadata["Pixels"]["DimensionOrder"]
     });
-    const tileSize = getTiffTileSize(
-      await pyramidIndexer({ c: 0, t: 0, z: 0 }, 0)
-    );
     const sourcePhoto = firstImage.fileDirectory.PhotometricInterpretation;
     const meta = {
       physicalSizes: extractPhysicalSizesfromPixels(metadata["Pixels"]),
       sourcePhotometricInterpretation: sourcePhoto,
       photometricInterpretation: packedRgb ? presentPlanar ? PHOTOMETRIC_BLACK_IS_ZERO : PHOTOMETRIC_RGB : sourcePhoto
     };
-    const data = await Promise.all(
-      Array.from({ length: levels }, async (_, level) => {
-        const levelImage = await pyramidIndexer({ t: 0, c: 0, z: 0 }, level);
-        return new TiffPixelSource(
-          (sel) => pyramidIndexer(
-            {
-              t: sel.t ?? 0,
-              c: packedRgb ? 0 : sel.c ?? 0,
-              z: sel.z ?? 0
-            },
-            level
-          ),
-          vivDtype,
-          tileSize,
-          getShapeForLevel({
-            axes,
-            width: levelImage.getWidth(),
-            height: levelImage.getHeight()
-          }),
-          axes.labels,
-          meta,
-          pool
-        );
-      })
+    const levelImages = await Promise.all(
+      Array.from(
+        { length: levels },
+        (_, level) => pyramidIndexer({ t: 0, c: 0, z: 0 }, level)
+      )
+    );
+    const tileSize = getTiffTileSize(levelImages[0]);
+    const data = levelImages.map(
+      (levelImage, level) => new TiffPixelSource(
+        (sel) => pyramidIndexer(
+          {
+            t: sel.t ?? 0,
+            c: packedRgb ? 0 : sel.c ?? 0,
+            z: sel.z ?? 0
+          },
+          level
+        ),
+        vivDtype,
+        tileSize,
+        getShapeForLevel({
+          axes,
+          width: levelImage.getWidth(),
+          height: levelImage.getHeight()
+        }),
+        axes.labels,
+        meta,
+        pool
+      )
     );
     images.push({ data, metadata });
     imageIfdOffset += imageSize.t * imageSize.z * imageSize.c;

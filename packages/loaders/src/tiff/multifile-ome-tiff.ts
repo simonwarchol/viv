@@ -127,7 +127,6 @@ async function getPixelSourceOptionsForImage(
     levels: baseImage.fileDirectory.SubIFDs
       ? baseImage.fileDirectory.SubIFDs.length + 1
       : 1,
-    tileSize: getTiffTileSize(baseImage),
     axes: extractAxesFromPixels(metadata['Pixels']),
     dtype: parsePixelDataType(metadata['Pixels']['Type']),
     meta: {
@@ -191,19 +190,22 @@ export async function loadMultifileOmeTiff(
       headers: options.headers || {}
     });
     const data = await Promise.all(
-      Array.from({ length: opts.levels }, async (_, level) => {
-        const levelImage = await opts.pyramidIndexer(
-          { t: 0, c: 0, z: 0 },
-          level
-        );
-        return new TiffPixelSource(
+      Array.from({ length: opts.levels }, (_, level) =>
+        opts.pyramidIndexer({ t: 0, c: 0, z: 0 }, level)
+      )
+    );
+    // Same as single-file: stamp L0 tile size so overview z is not a 128px L0 grid.
+    const tileSize = getTiffTileSize(data[0]);
+    const sources = data.map(
+      (levelImage, level) =>
+        new TiffPixelSource(
           sel =>
             opts.pyramidIndexer(
               { t: sel.t ?? 0, c: sel.c ?? 0, z: sel.z ?? 0 },
               level
             ),
           opts.dtype,
-          opts.tileSize,
+          tileSize,
           getShapeForLevel({
             axes: opts.axes,
             width: levelImage.getWidth(),
@@ -212,10 +214,12 @@ export async function loadMultifileOmeTiff(
           opts.axes.labels,
           opts.meta,
           options.pool
-        );
-      })
+        )
     );
-    tiffImages.push({ data: data as TiffPixelSource<OmeTiffDims>[], metadata });
+    tiffImages.push({
+      data: sources as TiffPixelSource<OmeTiffDims>[],
+      metadata
+    });
   }
   return tiffImages;
 }

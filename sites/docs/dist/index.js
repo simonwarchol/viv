@@ -2450,6 +2450,9 @@ function createOffsetsProxy(tiff, offsets) {
         return target.getImage(index);
       };
     }
+    if (key === "getImageCount") {
+      return async () => offsets.length;
+    }
     if (key === OFFSETS_PROXY_KEY) {
       return true;
     }
@@ -3698,7 +3701,6 @@ async function getPixelSourceOptionsForImage(metadata, config) {
   return {
     pyramidIndexer,
     levels: baseImage.fileDirectory.SubIFDs ? baseImage.fileDirectory.SubIFDs.length + 1 : 1,
-    tileSize: getTiffTileSize(baseImage),
     axes: extractAxesFromPixels(metadata["Pixels"]),
     dtype: parsePixelDataType(metadata["Pixels"]["Type"]),
     meta: {
@@ -3737,30 +3739,34 @@ async function loadMultifileOmeTiff(source, options = {}) {
       headers: options.headers || {}
     });
     const data = await Promise.all(
-      Array.from({ length: opts.levels }, async (_, level) => {
-        const levelImage = await opts.pyramidIndexer(
-          { t: 0, c: 0, z: 0 },
-          level
-        );
-        return new TiffPixelSource(
-          (sel) => opts.pyramidIndexer(
-            { t: _nullishCoalesce$2(sel.t, () => ( 0)), c: _nullishCoalesce$2(sel.c, () => ( 0)), z: _nullishCoalesce$2(sel.z, () => ( 0)) },
-            level
-          ),
-          opts.dtype,
-          opts.tileSize,
-          getShapeForLevel({
-            axes: opts.axes,
-            width: levelImage.getWidth(),
-            height: levelImage.getHeight()
-          }),
-          opts.axes.labels,
-          opts.meta,
-          options.pool
-        );
-      })
+      Array.from(
+        { length: opts.levels },
+        (_, level) => opts.pyramidIndexer({ t: 0, c: 0, z: 0 }, level)
+      )
     );
-    tiffImages.push({ data, metadata });
+    const tileSize = getTiffTileSize(data[0]);
+    const sources = data.map(
+      (levelImage, level) => new TiffPixelSource(
+        (sel) => opts.pyramidIndexer(
+          { t: _nullishCoalesce$2(sel.t, () => ( 0)), c: _nullishCoalesce$2(sel.c, () => ( 0)), z: _nullishCoalesce$2(sel.z, () => ( 0)) },
+          level
+        ),
+        opts.dtype,
+        tileSize,
+        getShapeForLevel({
+          axes: opts.axes,
+          width: levelImage.getWidth(),
+          height: levelImage.getHeight()
+        }),
+        opts.axes.labels,
+        opts.meta,
+        options.pool
+      )
+    );
+    tiffImages.push({
+      data: sources,
+      metadata
+    });
   }
   return tiffImages;
 }
@@ -3910,39 +3916,40 @@ async function loadSingleFileOmeTiff(source, options = {}) {
       ifdOffset: imageIfdOffset,
       dimensionOrder: metadata["Pixels"]["DimensionOrder"]
     });
-    const tileSize = getTiffTileSize(
-      await pyramidIndexer({ c: 0, t: 0, z: 0 }, 0)
-    );
     const sourcePhoto = firstImage.fileDirectory.PhotometricInterpretation;
     const meta = {
       physicalSizes: extractPhysicalSizesfromPixels(metadata["Pixels"]),
       sourcePhotometricInterpretation: sourcePhoto,
       photometricInterpretation: packedRgb ? presentPlanar ? PHOTOMETRIC_BLACK_IS_ZERO : PHOTOMETRIC_RGB : sourcePhoto
     };
-    const data = await Promise.all(
-      Array.from({ length: levels }, async (_, level) => {
-        const levelImage = await pyramidIndexer({ t: 0, c: 0, z: 0 }, level);
-        return new TiffPixelSource(
-          (sel) => pyramidIndexer(
-            {
-              t: _nullishCoalesce$2(sel.t, () => ( 0)),
-              c: packedRgb ? 0 : _nullishCoalesce$2(sel.c, () => ( 0)),
-              z: _nullishCoalesce$2(sel.z, () => ( 0))
-            },
-            level
-          ),
-          vivDtype,
-          tileSize,
-          getShapeForLevel({
-            axes,
-            width: levelImage.getWidth(),
-            height: levelImage.getHeight()
-          }),
-          axes.labels,
-          meta,
-          pool
-        );
-      })
+    const levelImages = await Promise.all(
+      Array.from(
+        { length: levels },
+        (_, level) => pyramidIndexer({ t: 0, c: 0, z: 0 }, level)
+      )
+    );
+    const tileSize = getTiffTileSize(levelImages[0]);
+    const data = levelImages.map(
+      (levelImage, level) => new TiffPixelSource(
+        (sel) => pyramidIndexer(
+          {
+            t: _nullishCoalesce$2(sel.t, () => ( 0)),
+            c: packedRgb ? 0 : _nullishCoalesce$2(sel.c, () => ( 0)),
+            z: _nullishCoalesce$2(sel.z, () => ( 0))
+          },
+          level
+        ),
+        vivDtype,
+        tileSize,
+        getShapeForLevel({
+          axes,
+          width: levelImage.getWidth(),
+          height: levelImage.getHeight()
+        }),
+        axes.labels,
+        meta,
+        pool
+      )
     );
     images.push({ data, metadata });
     imageIfdOffset += imageSize.t * imageSize.z * imageSize.c;
@@ -4717,15 +4724,15 @@ const BitmapLayer = class extends CompositeLayer {
   }
   updateState({ props, oldProps, ...rest }) {
     super.updateState({ props, oldProps, ...rest });
+    if (props.image === _optionalChain$2([oldProps, 'optionalAccess', _12 => _12.image]) && this.state.bitmapTexture) {
+      return;
+    }
     const img = getPreparedImage(props.image);
     if (!img) {
       if (this.state.bitmapTexture) {
         this.state.bitmapTexture.delete();
         this.setState({ bitmapTexture: null });
       }
-      return;
-    }
-    if (props.image === _optionalChain$2([oldProps, 'optionalAccess', _12 => _12.image]) && this.state.bitmapTexture) {
       return;
     }
     if (this.state.bitmapTexture) {
@@ -5404,6 +5411,32 @@ const defaultProps$4 = {
   }
 };
 const MultiscaleImageLayer = class extends CompositeLayer {
+  updateState(params) {
+    super.updateState(params);
+    const { props, oldProps } = params;
+    if (props.loader === oldProps.loader && props.modelMatrix === oldProps.modelMatrix) {
+      return;
+    }
+    const { loader, modelMatrix, id } = props;
+    const { width, height } = getImageSize(loader[0]);
+    const levelZooms = getPyramidZoomLevels(loader);
+    const userScale = modelMatrix ? modelMatrix.getScale() : [1, 1, 1];
+    console.log(`[viv modelMatrix] ${id}`, {
+      modelMatrix: modelMatrix ? Array.from(modelMatrix) : null,
+      modelMatrixScale: userScale,
+      zoomOffset: Math.round(Math.log2(userScale[0])),
+      extent: [0, 0, width, height],
+      tileSize: loader[0].tileSize,
+      levels: loader.map((source, i) => ({
+        ...getImageSize(source),
+        zoom: levelZooms[i],
+        scaleToLevel0: getLevelScale(loader, i)
+      })),
+      minZoom: levelZooms[levelZooms.length - 1],
+      backgroundScale: userScale[0] * getLevelScale(loader, loader.length - 1),
+      physicalSizes: _nullishCoalesce$1(_optionalChain$2([loader, 'access', _48 => _48[0], 'access', _49 => _49.meta, 'optionalAccess', _50 => _50.physicalSizes]), () => ( null))
+    });
+  }
   renderLayers() {
     const {
       loader,
@@ -5482,7 +5515,7 @@ const MultiscaleImageLayer = class extends CompositeLayer {
       updateTriggers: {
         getTileData: [
           loader,
-          _optionalChain$2([selections, 'optionalAccess', _48 => _48.length]) ? selections.map((s) => `${_nullishCoalesce$1(_optionalChain$2([s, 'optionalAccess', _49 => _49.t]), () => ( 0))},${_nullishCoalesce$1(_optionalChain$2([s, 'optionalAccess', _50 => _50.c]), () => ( 0))},${_nullishCoalesce$1(_optionalChain$2([s, 'optionalAccess', _51 => _51.z]), () => ( 0))}`).join("|") : ""
+          _optionalChain$2([selections, 'optionalAccess', _51 => _51.length]) ? selections.map((s) => `${_nullishCoalesce$1(_optionalChain$2([s, 'optionalAccess', _52 => _52.t]), () => ( 0))},${_nullishCoalesce$1(_optionalChain$2([s, 'optionalAccess', _53 => _53.c]), () => ( 0))},${_nullishCoalesce$1(_optionalChain$2([s, 'optionalAccess', _54 => _54.z]), () => ( 0))}`).join("|") : ""
         ]
       },
       onTileError: onTileError || loader[0].onTileError
@@ -6069,7 +6102,7 @@ const XR3DLayer = class extends Layer {
    * Implements VivLayer interface.
    */
   getNumChannels() {
-    return _nullishCoalesce$1(_nullishCoalesce$1(_optionalChain$2([this, 'access', _52 => _52.props, 'access', _53 => _53.selections, 'optionalAccess', _54 => _54.length]), () => ( _optionalChain$2([this, 'access', _55 => _55.props, 'access', _56 => _56.channels, 'optionalAccess', _57 => _57.length]))), () => ( MAX_CHANNELS));
+    return _nullishCoalesce$1(_nullishCoalesce$1(_optionalChain$2([this, 'access', _55 => _55.props, 'access', _56 => _56.selections, 'optionalAccess', _57 => _57.length]), () => ( _optionalChain$2([this, 'access', _58 => _58.props, 'access', _59 => _59.channels, 'optionalAccess', _60 => _60.length]))), () => ( MAX_CHANNELS));
   }
   /**
    * Returns the number of planes for this layer instance.
@@ -6077,7 +6110,7 @@ const XR3DLayer = class extends Layer {
    */
   getNumPlanes() {
     const { clippingPlanes } = this.props;
-    return _optionalChain$2([clippingPlanes, 'optionalAccess', _58 => _58.length]) || NUM_PLANES_DEFAULT;
+    return _optionalChain$2([clippingPlanes, 'optionalAccess', _61 => _61.length]) || NUM_PLANES_DEFAULT;
   }
   initializeState() {
     const { device } = this.context;
@@ -6088,12 +6121,12 @@ const XR3DLayer = class extends Layer {
   }
   _isHookDefinedByExtensions(hookName) {
     const { extensions } = this.props;
-    return _optionalChain$2([extensions, 'optionalAccess', _59 => _59.some, 'call', _60 => _60((e) => {
+    return _optionalChain$2([extensions, 'optionalAccess', _62 => _62.some, 'call', _63 => _63((e) => {
       const shaders = e.getShaders.call(this, e);
       if (shaders) {
         const { inject = {}, modules = [] } = shaders;
         const definesInjection = inject[hookName];
-        const moduleDefinesInjection = modules.some((m) => _optionalChain$2([m, 'optionalAccess', _61 => _61.inject, 'optionalAccess', _62 => _62[hookName]]));
+        const moduleDefinesInjection = modules.some((m) => _optionalChain$2([m, 'optionalAccess', _64 => _64.inject, 'optionalAccess', _65 => _65[hookName]]));
         return definesInjection || moduleDefinesInjection;
       }
       return false;
@@ -6153,7 +6186,7 @@ const XR3DLayer = class extends Layer {
   finalizeState() {
     super.finalizeState();
     if (this.state.textures) {
-      Object.values(this.state.textures).forEach((tex) => _optionalChain$2([tex, 'optionalAccess', _63 => _63.delete, 'call', _64 => _64()]));
+      Object.values(this.state.textures).forEach((tex) => _optionalChain$2([tex, 'optionalAccess', _66 => _66.delete, 'call', _67 => _67()]));
     }
   }
   /**
@@ -6169,7 +6202,7 @@ const XR3DLayer = class extends Layer {
       }
       return;
     }
-    const channelCountChanged = (_nullishCoalesce$1(_optionalChain$2([props, 'access', _65 => _65.selections, 'optionalAccess', _66 => _66.length]), () => ( 0))) !== (_nullishCoalesce$1(_optionalChain$2([oldProps, 'optionalAccess', _67 => _67.selections, 'optionalAccess', _68 => _68.length]), () => ( 0)));
+    const channelCountChanged = (_nullishCoalesce$1(_optionalChain$2([props, 'access', _68 => _68.selections, 'optionalAccess', _69 => _69.length]), () => ( 0))) !== (_nullishCoalesce$1(_optionalChain$2([oldProps, 'optionalAccess', _70 => _70.selections, 'optionalAccess', _71 => _71.length]), () => ( 0)));
     if (changeFlags.extensionsChanged || props.colormap !== oldProps.colormap || props.renderingMode !== oldProps.renderingMode || props.clippingPlanes.length !== oldProps.clippingPlanes.length || channelCountChanged) {
       const { device } = this.context;
       if (this.state.model) {
@@ -6177,7 +6210,7 @@ const XR3DLayer = class extends Layer {
       }
       this.setState({ model: this._getModel(device) });
     }
-    if (props.channelData && _optionalChain$2([props, 'optionalAccess', _69 => _69.channelData, 'optionalAccess', _70 => _70.data]) !== _optionalChain$2([oldProps, 'optionalAccess', _71 => _71.channelData, 'optionalAccess', _72 => _72.data])) {
+    if (props.channelData && _optionalChain$2([props, 'optionalAccess', _72 => _72.channelData, 'optionalAccess', _73 => _73.data]) !== _optionalChain$2([oldProps, 'optionalAccess', _74 => _74.channelData, 'optionalAccess', _75 => _75.data])) {
       this.loadTexture(props.channelData);
     }
     if (this.state.textures && this.state.scaleMatrix) {
@@ -6244,7 +6277,7 @@ const XR3DLayer = class extends Layer {
     const numTextures = Object.values(textures).filter((t) => t).length;
     const numChannelsForColors = Math.max(
       numTextures,
-      _optionalChain$2([selections, 'optionalAccess', _73 => _73.length]) || 0,
+      _optionalChain$2([selections, 'optionalAccess', _76 => _76.length]) || 0,
       1
     );
     const paddedColors = padColorsForUBO({
@@ -6361,7 +6394,7 @@ const XR3DLayer = class extends Layer {
       textures[`volume${i}`] = null;
     }
     if (this.state.textures) {
-      Object.values(this.state.textures).forEach((tex) => _optionalChain$2([tex, 'optionalAccess', _74 => _74.delete, 'call', _75 => _75()]));
+      Object.values(this.state.textures).forEach((tex) => _optionalChain$2([tex, 'optionalAccess', _77 => _77.delete, 'call', _78 => _78()]));
     }
     if (channelData && Object.keys(channelData).length > 0 && channelData.data) {
       const { height, width, depth } = channelData;
@@ -6404,7 +6437,7 @@ const XR3DLayer = class extends Layer {
       height,
       depth,
       dimension: "3d",
-      data: _nullishCoalesce$1(_optionalChain$2([attrs, 'access', _76 => _76.cast, 'optionalCall', _77 => _77(data)]), () => ( data)),
+      data: _nullishCoalesce$1(_optionalChain$2([attrs, 'access', _79 => _79.cast, 'optionalCall', _80 => _80(data)]), () => ( data)),
       format: attrs.format,
       mipLevels: 1,
       sampler: {
@@ -6577,9 +6610,9 @@ const VolumeLayer = class extends CompositeLayer {
         }
         const volume = {
           data: volumes.map((d) => d.data),
-          width: _optionalChain$2([volumes, 'access', _78 => _78[0], 'optionalAccess', _79 => _79.width]),
-          height: _optionalChain$2([volumes, 'access', _80 => _80[0], 'optionalAccess', _81 => _81.height]),
-          depth: _optionalChain$2([volumes, 'access', _82 => _82[0], 'optionalAccess', _83 => _83.depth])
+          width: _optionalChain$2([volumes, 'access', _81 => _81[0], 'optionalAccess', _82 => _82.width]),
+          height: _optionalChain$2([volumes, 'access', _83 => _83[0], 'optionalAccess', _84 => _84.height]),
+          depth: _optionalChain$2([volumes, 'access', _85 => _85[0], 'optionalAccess', _86 => _86.depth])
         };
         this.setState({
           ...volume,

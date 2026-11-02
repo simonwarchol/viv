@@ -46,6 +46,12 @@ export function createOffsetsProxy(tiff: GeoTIFF, offsets: number[]) {
       };
     }
 
+    // GeoTIFF counts images by walking every IFD in turn, one request each.
+    // The offsets already list every top-level IFD.
+    if (key === 'getImageCount') {
+      return async () => offsets.length;
+    }
+
     // tiff['__viv-offsets'] === true
     if (key === OFFSETS_PROXY_KEY) {
       return true;
